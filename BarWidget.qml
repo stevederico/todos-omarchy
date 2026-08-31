@@ -57,7 +57,7 @@ BarWidget {
   Loader {
     id: panelLoader
     active: true
-    source: Qt.resolvedUrl("Panel.qml")
+    source: Qt.resolvedUrl("TodoPanel.qml")
     visible: false
     onLoaded: {
       root.injectPanel()
@@ -81,13 +81,13 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: root.displayText
-    tooltipText: root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")
+    tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · right-click for window"
     horizontalMargin: 8.75
     verticalPadding: 8.75
 
     onPressed: function(b) {
       if (b === Qt.RightButton) {
-        if (panelLoader.item && panelLoader.item.openInEditor) panelLoader.item.openInEditor()
+        Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
       } else if (b === Qt.MiddleButton) {
         root.refresh()
       } else {

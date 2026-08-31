@@ -2,22 +2,28 @@
   "schemaVersion": 1,
   "id": "sd.todo-omarchy",
   "name": "Todo Omarchy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "sd",
   "license": "MIT",
-  "description": "Omarchy bar: open todos from markdown (- item lines)",
+  "description": "Omarchy bar and window app: open todos from markdown (- item lines)",
   "kinds": [
-    "bar-widget"
+    "bar-widget",
+    "panel"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "barWidget": "BarWidget.qml"
+    "barWidget": "BarWidget.qml",
+    "panel": "window/TodoApp.qml"
   },
   "barWidget": {
     "displayName": "Todo Omarchy",
     "description": "Open markdown to-dos from the Omarchy bar, with git commit and push",
     "category": "Productivity",
-    "aliases": ["todo", "todos", "checklist"],
+    "aliases": [
+      "todo",
+      "todos",
+      "checklist"
+    ],
     "allowMultiple": false,
     "defaultSection": "right"
   }

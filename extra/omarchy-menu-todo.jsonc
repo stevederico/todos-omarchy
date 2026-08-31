@@ -3,7 +3,7 @@
     "icon": "󰒠",
     "label": "Todos",
     "aliases": ["todo", "todos", "checklist"],
-    "description": "Open markdown to-dos from the bar",
-    "action": "omarchy-shell sd.todo-omarchy toggle"
+    "description": "Open markdown to-dos as a window",
+    "action": "omarchy-shell shell summon sd.todo-omarchy"
   }
 }

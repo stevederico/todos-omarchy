@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Todos
+GenericName=Markdown to-do list
+Comment=Open markdown to-dos from the Omarchy bar or as a window
+Exec=omarchy-shell shell summon sd.todo-omarchy
+Icon=checkbox-symbolic
+Terminal=false
+Categories=Office;Utility;
+Keywords=omarchy;todo;todos;checklist;markdown;
+StartupNotify=false

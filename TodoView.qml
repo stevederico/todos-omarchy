@@ -6,15 +6,15 @@ import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
 
-Panel {
+Item {
   id: root
-  moduleName: "sd.todo-omarchy"
-  ipcTarget: "sd.todo-omarchy"
-  manageIpc: false
 
-  property var anchorItem: null
-  property var hostWidget: null
-  readonly property var barIdentity: hostWidget || root
+  property var bar: null
+  property bool compact: true
+  focus: true
+
+  signal closeRequested()
+  signal openWindowRequested()
 
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
@@ -368,37 +368,22 @@ Panel {
     }
   }
 
-  function open() {
-    reload()
-    root.controller.show()
-    Qt.callLater(function () {
-      if (root.opened) setCenterHoverRevealSuppressed(true)
-    })
+  function focusAdd() {
+    showAddField = true
+    showAddList = false
+    addField.forceActiveFocus()
   }
 
-  function close() {
-    setCenterHoverRevealSuppressed(false)
+  function focusFilter() {
+    filterField.forceActiveFocus()
+  }
+
+  function dismissOverlays() {
     showAddField = false
     showAddList = false
     editingId = ""
     ctx = null
-    root.controller.hide()
-  }
-
-  function toggle() {
-    if (root.opened) root.close()
-    else root.open()
-  }
-
-  function switchPanel(direction) {
-    if (root.bar && typeof root.bar.switchPanelFrom === "function")
-      return root.bar.switchPanelFrom(root.barIdentity, direction)
-    return false
-  }
-
-  function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
-      root.bar.centerHoverRevealSuppressed = value
+    renameID = ""
   }
 
   readonly property string gitScript: "set +e\n" +
@@ -507,36 +492,31 @@ Panel {
 
   Component.onCompleted: mkdirProc.running = true
 
-  onOpenedChanged: if (opened) {
-    reload()
-    Qt.callLater(function () { keyCatcher.forceActiveFocus() })
+  Keys.onPressed: function (event) {
+    if (root.fieldFocused) return
+    if (event.key === Qt.Key_Escape) {
+      if (root.ctx !== null || root.showAddField || root.showAddList || root.renameID !== "") {
+        root.dismissOverlays()
+        event.accepted = true
+      } else if (!root.compact) {
+        root.closeRequested()
+        event.accepted = true
+      }
+    } else if (event.key === Qt.Key_N) {
+      root.focusAdd()
+      event.accepted = true
+    } else if (event.key === Qt.Key_Slash) {
+      root.focusFilter()
+      event.accepted = true
+    } else if (event.key === Qt.Key_R) {
+      root.reload()
+      event.accepted = true
+    }
   }
 
-  KeyboardPanel {
-    id: panel
-    anchorItem: root.anchorItem
-    owner: root.barIdentity
-    bar: root.bar
-    open: root.opened
-    focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(460))
-    contentHeight: panel.fittedContentHeight(Style.space(580))
-
-    PanelKeyCatcher {
-      id: keyCatcher
-      anchors.fill: parent
-      blocked: root.fieldFocused
-      onCloseRequested: root.close()
-      onTabRequested: function (direction) { root.switchPanel(direction) }
-      onActivateRequested: root.showAddField = true
-      onTextKey: function (t) {
-        if (t === "n" || t === "N") root.showAddField = true
-        else if (t === "/") filterField.forceActiveFocus()
-        else if (t === "r" || t === "R") root.reload()
-      }
-
-      Item {
-        anchors.fill: parent
+  Item {
+    anchors.fill: parent
+    anchors.margins: root.compact ? 0 : Style.space(12)
 
         Column {
           id: header
@@ -814,6 +794,13 @@ Panel {
             Button { text: "Open File"; fontSize: Style.font.caption; onClicked: root.openInEditor() }
             Button { text: "Reveal"; fontSize: Style.font.caption; onClicked: root.reveal() }
             Button {
+              visible: root.compact
+              text: "Open Window"
+              fontSize: Style.font.caption
+              bordered: true
+              onClicked: root.openWindowRequested()
+            }
+            Button {
               visible: root.completedCount > 0
               text: root.showCompleted ? "Hide Completed" : ("Show Completed (" + root.completedCount + ")")
               fontSize: Style.font.caption
@@ -863,6 +850,4 @@ Panel {
           }
         }
       }
-    }
-  }
 }

@@ -1,10 +1,11 @@
 # todo-omarchy
 
-Omarchy bar app for open items in plain markdown todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
+Omarchy bar **and window** app for open items in plain markdown todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
 
 ## What it does
 
-- Bar icon with the open-item count; click to open the panel
+- Bar icon with the open-item count; click for the compact panel, right-click for a normal window
+- App launcher / Omarchy menu **Todos** opens the same UI as a tiled Hyprland window
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
 - **Add List** takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`)
 - Right-click tab → Rename / Reveal / Remove
@@ -37,13 +38,25 @@ omarchy plugin enable "$PLUGIN_ID"
 omarchy bar put sd.todo-omarchy --before omarchy.clock --section right
 ```
 
-Open the panel from the bar, or:
+Open the compact bar panel:
 
 ```sh
 omarchy-shell sd.todo-omarchy toggle
 ```
 
-Middle-click the bar icon to reload; right-click opens the markdown file.
+Open the normal window (app launcher, menu, or right-click the bar icon):
+
+```sh
+omarchy-shell shell summon sd.todo-omarchy
+```
+
+To show it in the application launcher:
+
+```sh
+cp extra/sd.todo-omarchy.desktop ~/.local/share/applications/
+```
+
+Middle-click the bar icon to reload. In the compact panel, **Open Window** (or `w`) pops the same list out into a real window.
 
 Optional menu row: merge `extra/omarchy-menu-todo.jsonc` into `~/.config/omarchy/extensions/omarchy-menu.jsonc`. Do not replace that file.
 
