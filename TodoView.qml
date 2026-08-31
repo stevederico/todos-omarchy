@@ -954,14 +954,6 @@ Item {
             }
           }
 
-          Text {
-            width: parent.width
-            text: root.filePath
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            elide: Text.ElideMiddle
-          }
         }
 
         Rectangle {
