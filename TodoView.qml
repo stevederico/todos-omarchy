@@ -43,7 +43,8 @@ Item {
 
   property string query: ""
   property bool showCompleted: false
-  property bool showAddField: false
+  property bool showAddField: true
+  property bool showFilter: false
   property bool showAddList: false
   property string newTodoText: ""
   property string addListPath: ""
@@ -431,11 +432,12 @@ Item {
   }
 
   function focusFilter() {
+    showFilter = true
     filterField.forceActiveFocus()
   }
 
   function dismissOverlays() {
-    showAddField = false
+    showFilter = false
     showAddList = false
     editingId = ""
     ctx = null
@@ -550,7 +552,7 @@ Item {
   Keys.onPressed: function (event) {
     if (root.fieldFocused) return
     if (event.key === Qt.Key_Escape) {
-      if (root.ctx !== null || root.showAddField || root.showAddList || root.renameID !== "") {
+      if (root.ctx !== null || root.showFilter || root.showAddList || root.renameID !== "") {
         root.dismissOverlays()
         event.accepted = true
       } else if (!root.compact) {
@@ -835,16 +837,33 @@ Item {
 
           TextField {
             id: filterField
+            visible: root.showFilter
             width: parent.width
             placeholderText: "Filter"
             text: root.query
             foreground: root.foreground
             onTextChanged: root.query = text
+            Keys.onEscapePressed: {
+              root.showFilter = false
+              root.query = ""
+            }
           }
 
           Flow {
             width: parent.width
             spacing: Style.space(8)
+            Button {
+              text: root.showFilter ? "Hide Filter" : (root.trim(root.query).length > 0 ? "Filter (on)" : "Filter")
+              fontSize: Style.font.caption
+              bordered: root.showFilter || root.trim(root.query).length > 0
+              onClicked: {
+                if (root.showFilter) {
+                  root.showFilter = false
+                } else {
+                  root.focusFilter()
+                }
+              }
+            }
             Button { text: "Refresh"; fontSize: Style.font.caption; onClicked: root.reload() }
             Button { text: "Open File"; fontSize: Style.font.caption; onClicked: root.openInEditor() }
             Button { text: "Reveal"; fontSize: Style.font.caption; onClicked: root.reveal() }

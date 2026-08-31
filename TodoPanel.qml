@@ -54,7 +54,7 @@ Panel {
 
   onOpenedChanged: if (opened) {
     view.reload()
-    Qt.callLater(function () { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function () { view.focusAdd() })
   }
 
   KeyboardPanel {
