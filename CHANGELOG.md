@@ -1,3 +1,9 @@
+0.3.0
+
+  Git commit/push and changelog updates are opt-in (off by default)
+  Commit messages go through git commit -F, not the shell
+  Push errors use a private mktemp file, not /tmp/todo-omarchy-push.err
+
 0.2.0
 
   Normal tiled window via omarchy-shell shell summon

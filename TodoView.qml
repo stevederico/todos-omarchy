@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
+import "Settings.js" as Settings
 
 Item {
   id: root
@@ -19,6 +20,8 @@ Item {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
   readonly property string sourcesPath: configDir + "/sources.json"
+  readonly property string settingsPath: configDir + "/settings.json"
+  readonly property string commitMsgPath: configDir + "/commit-msg"
 
   property var sources: []
   property string selectedID: ""
@@ -34,6 +37,9 @@ Item {
   property bool changelogPresent: false
   property bool suppressWatch: false
   property int statusToken: 0
+  property bool gitCommit: false
+  property bool gitPush: false
+  property bool updateChangelog: false
 
   property string query: ""
   property bool showCompleted: false
@@ -111,6 +117,48 @@ Item {
     var payload = { sources: sources, selectedID: selectedID }
     sourcesFile.setText(JSON.stringify(payload, null, 2) + "\n")
   }
+
+  function persistSettings() {
+    mkdirProc.running = true
+    settingsFile.setText(Settings.serializeSettings({
+      gitCommit: gitCommit,
+      gitPush: gitPush,
+      updateChangelog: updateChangelog
+    }))
+  }
+
+  function applySettings(raw) {
+    var next = Settings.parseSettings(raw)
+    gitCommit = next.gitCommit
+    gitPush = next.gitPush
+    updateChangelog = next.updateChangelog
+  }
+
+  function cycleGit() {
+    if (!gitCommit) {
+      gitCommit = true
+      gitPush = false
+    } else if (!gitPush) {
+      gitPush = true
+    } else {
+      gitCommit = false
+      gitPush = false
+    }
+    persistSettings()
+  }
+
+  function toggleChangelog() {
+    updateChangelog = !updateChangelog
+    persistSettings()
+  }
+
+  function gitSyncPath() {
+    var url = String(Qt.resolvedUrl("scripts/git-sync.sh") || "")
+    if (url.indexOf("file://") === 0) return url.slice(7)
+    return url
+  }
+
+  readonly property string gitLabel: !gitCommit ? "Git: off" : (gitPush ? "Git: push" : "Git: commit")
 
   function loadSources(raw) {
     var parsed = null
@@ -210,14 +258,22 @@ Item {
     todoFile.setText(body)
     publish()
     lastStatus = status
+    if (!gitCommit) {
+      isBusy = false
+      return
+    }
     statusToken += 1
     var token = statusToken
-    var files = [filePath]
+    commitMsgFile.setText(String(message || ""))
+    var args = [gitSyncPath(), "--dir", dirname(filePath), "--message-file", commitMsgPath]
+    if (gitPush) args.push("--push")
+    args.push("--")
+    args.push(filePath)
     if (extraFiles) {
-      for (var i = 0; i < extraFiles.length; i++) files.push(extraFiles[i])
+      for (var i = 0; i < extraFiles.length; i++) args.push(extraFiles[i])
     }
     gitProc.running = false
-    gitProc.command = ["bash", "-c", gitScript, "todo-omarchy-git", dirname(filePath), message].concat(files)
+    gitProc.command = args
     gitProc.token = token
     gitProc.status = status
     gitProc.running = true
@@ -243,7 +299,7 @@ Item {
     mutate(function () {
       var result = Doc.toggleComplete(lines, item.text, item.section, item.lineIndex, item.isCompleted)
       var extra = []
-      if (result.completed && changelogPresent) {
+      if (result.completed && changelogPresent && updateChangelog) {
         var existing = changelogFile.text()
         changelogFile.setText(Doc.insertChangelogEntry(existing, Doc.todayHeader(), "  " + item.text))
         extra.push(changelogPath)
@@ -386,26 +442,6 @@ Item {
     renameID = ""
   }
 
-  readonly property string gitScript: "set +e\n" +
-    "export GIT_EDITOR=true GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0 GIT_PAGER=cat GIT_LFS_SKIP_PUSH=1 GIT_LFS_SKIP_SMUDGE=1\n" +
-    "DIR=\"$1\"; MSG=\"$2\"; shift 2\n" +
-    "ROOT=$(git -C \"$DIR\" rev-parse --show-toplevel 2>/dev/null) || { echo FAILED:Not a git repository; exit 0; }\n" +
-    "ROOT=$(readlink -f \"$ROOT\")\n" +
-    "RELS=()\n" +
-    "for f in \"$@\"; do\n" +
-    "  F=$(readlink -f \"$f\")\n" +
-    "  case \"$F\" in \"$ROOT\"|\"$ROOT\"/*) ;; *) echo FAILED:File outside git root; exit 0 ;; esac\n" +
-    "  REL=${F#\"$ROOT\"/}\n" +
-    "  RELS+=(\"$REL\")\n" +
-    "done\n" +
-    "git -C \"$ROOT\" add -- \"${RELS[@]}\" || { echo FAILED:git add failed; exit 0; }\n" +
-    "STATUS=$(git -C \"$ROOT\" status --porcelain -- \"${RELS[@]}\")\n" +
-    "if [ -z \"$STATUS\" ]; then echo COMMITTED_EMPTY; exit 0; fi\n" +
-    "timeout 8 git -C \"$ROOT\" commit -m \"$MSG\" >/dev/null || { echo FAILED:git commit failed; exit 0; }\n" +
-    "if git -C \"$ROOT\" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then\n" +
-    "  if timeout 20 git -C \"$ROOT\" push >/dev/null 2>/tmp/todo-omarchy-push.err; then echo PUSHED; else echo COMMITTED; echo PUSH_ERROR:$(tr '\\n' ' ' </tmp/todo-omarchy-push.err); fi\n" +
-    "else echo COMMITTED; fi\n"
-
   Timer {
     id: suppressTimer
     interval: 1500
@@ -456,6 +492,25 @@ Item {
     onExited: function () {
       Qt.callLater(function () { root.isBusy = false })
     }
+  }
+
+  FileView {
+    id: settingsFile
+    path: root.settingsPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.applySettings(text())
+    onLoadFailed: root.applySettings("")
+  }
+
+  FileView {
+    id: commitMsgFile
+    path: root.commitMsgPath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
   }
 
   FileView {
@@ -805,6 +860,18 @@ Item {
               text: root.showCompleted ? "Hide Completed" : ("Show Completed (" + root.completedCount + ")")
               fontSize: Style.font.caption
               onClicked: root.showCompleted = !root.showCompleted
+            }
+            Button {
+              text: root.gitLabel
+              fontSize: Style.font.caption
+              tooltipText: "Off writes the file only. Commit stays local. Push sends to the file's upstream."
+              onClicked: root.cycleGit()
+            }
+            Button {
+              text: root.updateChangelog ? "Changelog: on" : "Changelog: off"
+              fontSize: Style.font.caption
+              tooltipText: "When on, completing an item also appends to a sibling CHANGELOG.md"
+              onClicked: root.toggleChangelog()
             }
           }
 

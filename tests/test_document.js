@@ -207,13 +207,13 @@ test("changelog inserts under today's header or prepends a block", () => {
 })
 
 test("defaultTitle uses parent folder for todos.md", () => {
-  assert.equal(Doc.defaultTitle("/home/me/todos.md"), "sd")
-  assert.equal(Doc.defaultTitle("/home/me/marketing/todo.md"), "marketing")
-  assert.equal(Doc.defaultTitle("/home/me/books.md"), "books")
+  assert.equal(Doc.defaultTitle("/home/user/todos.md"), "user")
+  assert.equal(Doc.defaultTitle("/home/user/marketing/todo.md"), "marketing")
+  assert.equal(Doc.defaultTitle("/home/user/books.md"), "books")
 })
 
 test("defaultTodosPath prefers an existing ~/todos.md", () => {
-  const home = "/home/sd"
+  const home = "/home/user"
   assert.equal(Doc.defaultTodosPath(home, (p) => p === home + "/todos.md"), home + "/todos.md")
   assert.equal(Doc.defaultTodosPath(home, (p) => p === home + "/Documents/todos.md"), home + "/Documents/todos.md")
   assert.equal(Doc.defaultTodosPath(home, () => false), home + "/todos.md")
