@@ -10,7 +10,6 @@ BarWidget {
   moduleName: "sd.todo-omarchy"
 
   readonly property int openCount: panelLoader.item ? Number(panelLoader.item.openCount || 0) : 0
-  readonly property string displayText: root.vertical ? "󰒠" : ("󰒠  " + root.openCount)
 
   function injectPanel() {
     var target = panelLoader.item
@@ -45,7 +44,7 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
 
-  readonly property real openPanelIndicatorWidth: button.labelWidth
+  readonly property real openPanelIndicatorWidth: button.glyphPaintedWidth
   readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
 
   implicitWidth: button.implicitWidth
@@ -76,14 +75,12 @@ BarWidget {
     function toggle(): void { root.togglePanel() }
   }
 
-  WidgetButton {
+  BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.displayText
+    text: "󰒠"
     tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · right-click for window"
-    horizontalMargin: 8.75
-    verticalPadding: 8.75
 
     onPressed: function(b) {
       if (b === Qt.RightButton) {
