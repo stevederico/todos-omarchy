@@ -1,0 +1,9 @@
+{
+  "apps.todo-omarchy": {
+    "icon": "󰒠",
+    "label": "Todos",
+    "aliases": ["todo", "todos", "checklist"],
+    "description": "Open markdown to-dos from the bar",
+    "action": "omarchy-shell sd.todo-omarchy toggle"
+  }
+}
