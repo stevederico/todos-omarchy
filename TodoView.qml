@@ -54,6 +54,10 @@ Item {
   property string editingId: ""
   property string editDraft: ""
   property var ctx: null
+  property bool rowDragging: false
+  property var dragItem: null
+  property string dragSection: ""
+  property int dragHoverIndex: -1
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
@@ -324,6 +328,39 @@ Item {
 
   function moveItem(item, direction) {
     mutate(function () { return Doc.moveOpenItem(lines, item, direction) }, "Reordered", "Reorder", item.section)
+  }
+
+  function reorderOpen(item, destIndex) {
+    if (!item || item.isCompleted) return
+    if (trim(query).length > 0) return
+    var open = []
+    for (var s = 0; s < sections.length; s++) {
+      if (sections[s].title === item.section) {
+        open = openItems(sections[s])
+        break
+      }
+    }
+    var from = -1
+    for (var i = 0; i < open.length; i++) {
+      if (open[i].id === item.id) { from = i; break }
+    }
+    if (from < 0 || open.length === 0) return
+    var dest = Math.max(0, Math.min(Number(destIndex), open.length - 1))
+    if (dest === from) return
+    mutate(function () {
+      return Doc.moveOpenItems(lines, item.section, [from], dest)
+    }, "Reordered", "Reorder", item.section)
+  }
+
+  function hoverIndexForSection(repeater, globalY) {
+    if (!repeater || repeater.count <= 0) return 0
+    for (var i = 0; i < repeater.count; i++) {
+      var child = repeater.itemAt(i)
+      if (!child) continue
+      var local = child.mapFromItem(null, 0, globalY)
+      if (local.y < child.height * 0.5) return i
+    }
+    return repeater.count - 1
   }
 
   function reload() {
@@ -724,6 +761,7 @@ Item {
           clip: true
           boundsBehavior: Flickable.StopAtBounds
           flickableDirection: Flickable.VerticalFlick
+          interactive: !root.rowDragging
           ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
           Column {
@@ -749,6 +787,7 @@ Item {
                 }
 
                 Repeater {
+                  id: openRepeater
                   model: root.openItems(sectionCol.modelData)
 
                   TodoRow {
@@ -756,8 +795,11 @@ Item {
                     required property int index
                     width: listColumn.width
                     item: modelData
+                    openIndex: index
                     canMoveUp: index > 0 && root.trim(root.query).length === 0
                     canMoveDown: index < root.openItems(sectionCol.modelData).length - 1 && root.trim(root.query).length === 0
+                    draggable: !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
+                    dropTarget: root.rowDragging && root.dragSection === sectionCol.modelData.title && root.dragHoverIndex === index
                     expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft
@@ -779,6 +821,24 @@ Item {
                     onMenuRequested: root.ctx = { kind: "item", item: modelData }
                     onMoveUp: root.moveItem(modelData, -1)
                     onMoveDown: root.moveItem(modelData, 1)
+                    onDragBegan: {
+                      root.rowDragging = true
+                      root.dragItem = modelData
+                      root.dragSection = sectionCol.modelData.title
+                      root.dragHoverIndex = index
+                    }
+                    onDragUpdated: function (globalY) {
+                      root.dragHoverIndex = root.hoverIndexForSection(openRepeater, globalY)
+                    }
+                    onDragFinished: function (globalY) {
+                      var dest = root.hoverIndexForSection(openRepeater, globalY)
+                      var item = root.dragItem
+                      root.rowDragging = false
+                      root.dragItem = null
+                      root.dragSection = ""
+                      root.dragHoverIndex = -1
+                      root.reorderOpen(item, dest)
+                    }
                   }
                 }
 
