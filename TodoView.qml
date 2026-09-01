@@ -1134,6 +1134,9 @@ Item {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.bottom: parent.bottom
+          anchors.leftMargin: Style.space(8)
+          anchors.rightMargin: Style.space(8)
+          anchors.bottomMargin: Style.space(8)
           spacing: Style.space(8)
 
           TextField {
@@ -1152,16 +1155,15 @@ Item {
 
           Item {
             width: parent.width
-            height: Style.spacing.controlHeight
+            height: Math.max(Style.spacing.controlHeight, footerActions.implicitHeight)
 
             Row {
+              id: footerActions
               anchors.left: parent.left
               anchors.right: versionSlot.left
               anchors.rightMargin: versionSlot.visible ? Style.space(8) : 0
               anchors.verticalCenter: parent.verticalCenter
-              height: parent.height
               spacing: Style.space(8)
-              clip: true
 
               Button {
                 iconText: "󰍉"

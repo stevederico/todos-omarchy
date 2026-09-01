@@ -1,3 +1,7 @@
+0.27.0
+
+  Unclip footer buttons
+
 0.26.0
 
   Right-align version label
