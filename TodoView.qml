@@ -42,15 +42,16 @@ Item {
 
   property string query: ""
   property bool showCompleted: false
-  property bool showAddField: true
+  property bool showAddField: false
   property bool showFilter: false
   property bool showAddList: false
   property string newTodoText: ""
   property string addListPath: ""
   property string renameID: ""
   property string renameText: ""
-  property string expandedId: ""
   property string editingId: ""
+  property real ctxX: 0
+  property real ctxY: 0
   property string editDraft: ""
   property var ctx: null
   property bool rowDragging: false
@@ -216,7 +217,6 @@ Item {
     lastStatus = ""
     query = ""
     editingId = ""
-    expandedId = ""
     ctx = null
     todoFile.reload()
     changelogFile.reload()
@@ -582,7 +582,6 @@ Item {
       else if (action === "Edit…") {
         editingId = item.id
         editDraft = item.text
-        expandedId = item.id
       } else if (action === "Copy") copyText(item.text)
       else if (action === "Delete") deleteTodo(item)
     }
@@ -599,9 +598,29 @@ Item {
     filterField.forceActiveFocus()
   }
 
+  function openCtxAtItem(payload, item) {
+    if (item) {
+      var p = item.mapToItem(root, 0, item.height)
+      ctxX = p.x
+      ctxY = p.y
+    }
+    ctx = payload
+  }
+
+  function openCtxAtGlobal(payload, gx, gy) {
+    var p = root.mapFromItem(null, gx, gy)
+    ctxX = p.x
+    ctxY = p.y
+    ctx = payload
+  }
+
   function dismissOverlays() {
-    showFilter = false
+    if (showFilter) {
+      showFilter = false
+      query = ""
+    }
     showAddList = false
+    showAddField = false
     editingId = ""
     ctx = null
     renameID = ""
@@ -776,7 +795,7 @@ Item {
   Keys.onPressed: function (event) {
     if (root.fieldFocused) return
     if (event.key === Qt.Key_Escape) {
-      if (root.ctx !== null || root.showFilter || root.showAddList || root.renameID !== "") {
+      if (root.ctx !== null || root.showFilter || root.showAddList || root.showAddField || root.renameID !== "" || root.editingId !== "") {
         root.dismissOverlays()
         event.accepted = true
       } else if (!root.compact) {
@@ -828,6 +847,7 @@ Item {
                 Repeater {
                   model: root.sources
                   HeaderButton {
+                    id: tabChip
                     required property var modelData
                     height: tabRow.height
                     text: modelData.id === root.selectedID
@@ -838,7 +858,7 @@ Item {
                     fontFamily: root.fontFamily
                     tooltipText: modelData.path
                     onClicked: root.selectSource(modelData.id)
-                    onRightClicked: root.ctx = { kind: "tab", source: modelData }
+                    onRightClicked: root.openCtxAtItem({ kind: "tab", source: modelData }, tabChip)
                   }
                 }
 
@@ -862,6 +882,8 @@ Item {
               id: addBtn
               height: parent.height
               iconText: "󰐕"
+              selected: root.showAddField
+              bordered: root.showAddField
               tooltipText: root.showAddField ? "Hide new to-do" : "Add to-do"
               foreground: root.foreground
               fontFamily: root.fontFamily
@@ -939,6 +961,8 @@ Item {
           contentWidth: width
           contentHeight: listColumn.implicitHeight
           clip: true
+          opacity: root.isBusy ? 0.55 : 1
+          Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
           boundsBehavior: Flickable.StopAtBounds
           flickableDirection: Flickable.VerticalFlick
           interactive: !root.rowDragging
@@ -983,25 +1007,24 @@ Item {
                     listDragging: root.rowDragging
                     animateShift: root.animateShift
                     shiftY: root.rowShiftY(sectionCol.modelData.title, index)
-                    expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft
                     foreground: root.foreground
                     dim: root.dim
                     fontFamily: root.fontFamily
                     onCompleteClicked: root.complete(modelData)
-                    onExpandClicked: root.expandedId = root.expandedId === modelData.id ? "" : modelData.id
                     onEditRequested: {
                       root.editingId = modelData.id
                       root.editDraft = modelData.text
-                      root.expandedId = modelData.id
                     }
                     onEditAccepted: function (text) {
                       root.editingId = ""
                       root.saveEdit(modelData, text)
                     }
                     onEditCancelled: root.editingId = ""
-                    onMenuRequested: root.ctx = { kind: "item", item: modelData }
+                    onMenuRequested: function (gx, gy) {
+                      root.openCtxAtGlobal({ kind: "item", item: modelData }, gx, gy)
+                    }
                     onDragBegan: function (globalY) {
                       root.beginRowDrag(openRepeater, modelData, sectionCol.modelData.title, index, globalY)
                     }
@@ -1023,25 +1046,24 @@ Item {
                     width: listColumn.width
                     item: modelData
                     striped: (openRepeater.count + index) % 2 === 1
-                    expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft
                     foreground: root.foreground
                     dim: root.dim
                     fontFamily: root.fontFamily
                     onCompleteClicked: root.complete(modelData)
-                    onExpandClicked: root.expandedId = root.expandedId === modelData.id ? "" : modelData.id
                     onEditRequested: {
                       root.editingId = modelData.id
                       root.editDraft = modelData.text
-                      root.expandedId = modelData.id
                     }
                     onEditAccepted: function (text) {
                       root.editingId = ""
                       root.saveEdit(modelData, text)
                     }
                     onEditCancelled: root.editingId = ""
-                    onMenuRequested: root.ctx = { kind: "item", item: modelData }
+                    onMenuRequested: function (gx, gy) {
+                      root.openCtxAtGlobal({ kind: "item", item: modelData }, gx, gy)
+                    }
                   }
                 }
               }
@@ -1174,6 +1196,7 @@ Item {
                 onClicked: {
                   if (root.showFilter) {
                     root.showFilter = false
+                    root.query = ""
                   } else {
                     root.focusFilter()
                   }
@@ -1239,20 +1262,23 @@ Item {
 
         }
 
-        Rectangle {
+        MouseArea {
           visible: root.ctx !== null
           anchors.fill: parent
-          color: Qt.rgba(0, 0, 0, 0.28)
-          MouseArea { anchors.fill: parent; onClicked: root.ctx = null }
+          hoverEnabled: true
+          onClicked: root.ctx = null
         }
 
         BorderSurface {
+          id: ctxMenu
           visible: root.ctx !== null
-          width: ctxColumn.implicitWidth + Style.space(20)
-          height: ctxColumn.implicitHeight + Style.space(20)
-          anchors.centerIn: parent
+          width: ctxColumn.implicitWidth + Style.space(16)
+          height: ctxColumn.implicitHeight + Style.space(16)
+          x: Math.max(Style.space(8), Math.min(root.ctxX, parent.width - width - Style.space(8)))
+          y: Math.max(Style.space(8), Math.min(root.ctxY, parent.height - height - Style.space(8)))
           color: Color.popups.background
           radius: Style.cornerRadius
+          z: 10
 
           Column {
             id: ctxColumn
@@ -1261,10 +1287,12 @@ Item {
 
             Repeater {
               model: root.ctxActions()
-              Button {
+              HeaderButton {
                 required property string modelData
+                width: Math.max(Style.space(140), implicitWidth)
                 text: modelData
-                fontSize: Style.font.caption
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 onClicked: root.runCtx(modelData)
               }
             }

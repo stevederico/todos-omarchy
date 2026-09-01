@@ -8,7 +8,6 @@ Item {
 
   property var item: ({})
   property int openIndex: -1
-  property bool expanded: false
   property bool editing: false
   property bool draggable: false
   property bool dragging: false
@@ -22,11 +21,10 @@ Item {
   property string fontFamily: Style.font.family
 
   signal completeClicked()
-  signal expandClicked()
   signal editRequested()
   signal editAccepted(string text)
   signal editCancelled()
-  signal menuRequested()
+  signal menuRequested(real globalX, real globalY)
   signal dragBegan(real globalY)
   signal dragUpdated(real globalY)
   signal dragFinished(real globalY)
@@ -81,20 +79,23 @@ Item {
       return row.listDragging || row.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
     }
     property bool moving: false
+    property bool pressOnCheck: false
     property real originGlobalY: 0
 
     onPressed: function (mouse) {
       if (mouse.button === Qt.RightButton) {
-        row.menuRequested()
+        var g = dragArea.mapToItem(null, mouse.x, mouse.y)
+        row.menuRequested(g.x, g.y)
         mouse.accepted = true
         return
       }
       moving = false
+      pressOnCheck = false
       originGlobalY = row.globalYAt(mouse)
     }
     onPositionChanged: function (mouse) {
       if (!pressed || mouse.buttons !== Qt.LeftButton) return
-      if (!row.draggable) return
+      if (pressOnCheck || !row.draggable) return
       var gy = row.globalYAt(mouse)
       if (!moving && Math.abs(gy - originGlobalY) > 5) {
         moving = true
@@ -104,13 +105,17 @@ Item {
     }
     onReleased: function (mouse) {
       if (mouse.button === Qt.RightButton) return
+      if (pressOnCheck) {
+        pressOnCheck = false
+        moving = false
+        return
+      }
       if (moving) {
         row.dragFinished(row.globalYAt(mouse))
         moving = false
         return
       }
-      if (mouse.clickCount >= 2) row.editRequested()
-      else row.expandClicked()
+      row.editRequested()
       moving = false
     }
     onCanceled: {
@@ -147,6 +152,7 @@ Item {
           anchors.margins: -Style.space(4)
           cursorShape: Qt.PointingHandCursor
           preventStealing: true
+          onPressed: dragArea.pressOnCheck = true
           onClicked: row.completeClicked()
         }
       }
@@ -169,7 +175,7 @@ Item {
           font.strikeout: item && item.isCompleted
           wrapMode: Text.Wrap
           elide: Text.ElideNone
-          maximumLineCount: 8
+          maximumLineCount: 24
           verticalAlignment: Text.AlignVCenter
         }
 

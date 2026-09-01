@@ -1,3 +1,10 @@
+0.30.0
+
+  Click row to edit
+  Anchor context menus
+  Stop open focus steal
+  Clear filter on hide
+
 0.29.0
 
   Center footer icons

@@ -12,9 +12,8 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)
 - Click the circle — mark complete (`- [x]`), move that line to the **end of the file**; **Show Completed** to see / reopen
-- Click text to expand; double-click (or right-click → Edit) to rewrite
-- Right-click — Mark Complete / Reopen, Move, Edit, Copy, **Delete**
-- Reorder — ↑↓ on open items (or context menu)
+- Click text to edit; right-click for Complete / Copy / Delete
+- Drag open items to reorder
 - Live-reloads when the active file changes; tabs persist in `~/.config/todo-omarchy/sources.json`
 
 Opening or closing the panel or window syncs that file's git remote (pull when behind; push when ahead). Edits commit and push. Fetch failures stay silent. Diverged branches and overlapping uncommitted files are left alone. **Refresh** (or `r`) forces a check.

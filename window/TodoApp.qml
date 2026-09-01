@@ -17,7 +17,7 @@ Item {
     closingFromHost = false
     window.visible = true
     if (view && view.reload) view.reload()
-    Qt.callLater(function () { if (view && view.focusAdd) view.focusAdd() })
+    Qt.callLater(function () { if (view) view.forceActiveFocus() })
   }
 
   function close() {
