@@ -62,9 +62,9 @@ function formatTodoLine(indent, text, completed) {
   return (indent || "") + (completed ? "- [x] " : "- ") + text
 }
 
-function makeItem(offset, body, section, indent, done) {
+function makeItem(offset, body, section, indent, done, ordinal) {
   return {
-    id: offset + "-" + (done ? "x" : "o") + "-" + body,
+    id: (done ? "x" : "o") + ":" + section + ":" + String(ordinal || 1) + ":" + body,
     text: body,
     section: section,
     lineIndex: offset,
@@ -77,6 +77,7 @@ function parse(lines) {
   var currentTitle = "To-Dos"
   var buckets = []
   var index = {}
+  var ordinals = {}
 
   function ensureSection(title) {
     if (Object.prototype.hasOwnProperty.call(index, title)) return index[title]
@@ -99,7 +100,9 @@ function parse(lines) {
     if (body.length === 0) continue
     var done = isCompletedTodoLine(line)
     var si = ensureSection(currentTitle)
-    buckets[si].items.push(makeItem(offset, body, currentTitle, leadingWhitespace(line).length, done))
+    var key = currentTitle + "\0" + body + "\0" + (done ? "x" : "o")
+    ordinals[key] = (ordinals[key] || 0) + 1
+    buckets[si].items.push(makeItem(offset, body, currentTitle, leadingWhitespace(line).length, done, ordinals[key]))
   }
 
   var out = []

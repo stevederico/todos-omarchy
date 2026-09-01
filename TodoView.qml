@@ -21,7 +21,7 @@ Item {
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
   readonly property string sourcesPath: configDir + "/sources.json"
   readonly property string settingsPath: configDir + "/settings.json"
-  readonly property string commitMsgPath: configDir + "/commit-msg"
+  readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-commit-msg"
 
   property var sources: []
   property string selectedID: ""
@@ -43,6 +43,7 @@ Item {
   property bool pullInFlight: false
   property double lastPullAt: 0
   property string lastPullDir: ""
+  property var pendingGit: null
 
   property string query: ""
   property bool showCompleted: false
@@ -58,9 +59,23 @@ Item {
   property string editDraft: ""
   property var ctx: null
   property bool rowDragging: false
+  property bool animateShift: true
   property var dragItem: null
   property string dragSection: ""
+  property int dragFromIndex: -1
   property int dragHoverIndex: -1
+  property real dragPointerY: 0
+  property real dragGrabOffset: 0
+  property real dragGhostH: 40
+  property string dragGhostText: ""
+  property int edgeScrollDir: 0
+  property var dragRepeater: null
+  property bool ghostSettling: false
+  property real ghostY: 0
+  property real ghostOpacity: 0
+  property real ghostScale: 1
+  property var settleItem: null
+  property int settleDest: -1
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
@@ -306,14 +321,13 @@ Item {
     var body = Doc.toText(lines)
     todoFile.setText(body)
     publish()
-    lastStatus = status
+    if (status) lastStatus = status
     if (!gitCommit) {
       isBusy = false
       return
     }
     statusToken += 1
     var token = statusToken
-    commitMsgFile.setText(String(message || ""))
     var args = [gitSyncPath(), "--dir", dirname(filePath), "--message-file", commitMsgPath]
     if (gitPush) args.push("--push")
     args.push("--")
@@ -321,11 +335,28 @@ Item {
     if (extraFiles) {
       for (var i = 0; i < extraFiles.length; i++) args.push(extraFiles[i])
     }
+    pendingGit = { token: token, status: status, args: args }
+    mkdirProc.running = true
+    commitMsgFile.setText(String(message || "") + "\n")
+  }
+
+  function startPendingGit() {
+    if (!pendingGit) return
+    var job = pendingGit
+    pendingGit = null
     gitProc.running = false
-    gitProc.command = args
-    gitProc.token = token
-    gitProc.status = status
+    gitProc.command = job.args
+    gitProc.token = job.token
+    gitProc.status = job.status
     gitProc.running = true
+  }
+
+  function failPendingGit(err) {
+    if (!pendingGit) return
+    lastStatus = pendingGit.status + " · not committed"
+    lastError = err || "Could not write commit message file"
+    pendingGit = null
+    isBusy = false
   }
 
   function mutate(fn, status, prefix, label) {
@@ -393,18 +424,119 @@ Item {
     if (dest === from) return
     mutate(function () {
       return Doc.moveOpenItems(lines, item.section, [from], dest)
-    }, "Reordered", "Reorder", item.section)
+    }, "", "Reorder", item.section)
   }
 
   function hoverIndexForSection(repeater, globalY) {
     if (!repeater || repeater.count <= 0) return 0
-    for (var i = 0; i < repeater.count; i++) {
-      var child = repeater.itemAt(i)
+    var first = repeater.itemAt(0)
+    if (!first || !first.parent) return 0
+    var localY = first.parent.mapFromItem(null, 0, globalY).y - first.y
+    var acc = 0
+    var i
+    var child
+    for (i = 0; i < repeater.count; i++) {
+      child = repeater.itemAt(i)
       if (!child) continue
-      var local = child.mapFromItem(null, 0, globalY)
-      if (local.y < child.height * 0.5) return i
+      if (localY < acc + child.height * 0.5) return i
+      acc += child.height
     }
     return repeater.count - 1
+  }
+
+  function rowShiftY(sectionTitle, index) {
+    if (!rowDragging || dragSection !== sectionTitle || dragFromIndex < 0) return 0
+    if (index === dragFromIndex) return 0
+    if (dragFromIndex < dragHoverIndex && index > dragFromIndex && index <= dragHoverIndex)
+      return -dragGhostH
+    if (dragHoverIndex < dragFromIndex && index >= dragHoverIndex && index < dragFromIndex)
+      return dragGhostH
+    return 0
+  }
+
+  function updateEdgeScroll(globalY) {
+    var local = listFlick.mapFromItem(null, 0, globalY).y
+    var edge = 32
+    if (local < edge) edgeScrollDir = -1
+    else if (local > listFlick.height - edge) edgeScrollDir = 1
+    else edgeScrollDir = 0
+  }
+
+  function ghostFollowY(globalY) {
+    return listFlick.y + listFlick.mapFromItem(null, 0, globalY).y - dragGrabOffset
+  }
+
+  function destSlotY(repeater, dest) {
+    var row = repeater && dest >= 0 ? repeater.itemAt(dest) : null
+    if (!row || !row.parent || !dragGhost.parent) return ghostY
+    return row.parent.mapToItem(dragGhost.parent, 0, row.y).y
+  }
+
+  function beginRowDrag(repeater, item, sectionTitle, index, globalY) {
+    var row = repeater ? repeater.itemAt(index) : null
+    settleTimer.stop()
+    ghostFadeTimer.stop()
+    dragRepeater = repeater
+    rowDragging = true
+    ghostSettling = false
+    animateShift = true
+    dragItem = item
+    dragSection = sectionTitle
+    dragFromIndex = index
+    dragHoverIndex = index
+    dragPointerY = globalY
+    dragGhostH = row ? row.height : Style.space(40)
+    dragGhostText = item && item.text ? item.text : ""
+    dragGrabOffset = row ? globalY - row.mapToItem(null, 0, 0).y : dragGhostH / 2
+    ghostY = ghostFollowY(globalY)
+    ghostOpacity = 0.97
+    ghostScale = 1.02
+    updateEdgeScroll(globalY)
+  }
+
+  function updateRowDrag(repeater, globalY) {
+    if (ghostSettling) return
+    dragPointerY = globalY
+    dragHoverIndex = hoverIndexForSection(repeater, globalY)
+    ghostY = ghostFollowY(globalY)
+    updateEdgeScroll(globalY)
+  }
+
+  function finishRowDrag(repeater, globalY) {
+    if (ghostSettling) return
+    var dest = hoverIndexForSection(repeater, globalY)
+    edgeScrollDir = 0
+    settleItem = dragItem
+    settleDest = dest
+    dragRepeater = repeater
+    ghostSettling = true
+    ghostY = destSlotY(repeater, dest)
+    ghostScale = 1
+    settleTimer.restart()
+  }
+
+  function commitSettledDrag() {
+    var item = settleItem
+    var dest = settleDest
+    animateShift = false
+    reorderOpen(item, dest)
+    rowDragging = false
+    dragItem = null
+    dragSection = ""
+    dragFromIndex = -1
+    dragHoverIndex = -1
+    dragRepeater = null
+    settleItem = null
+    settleDest = -1
+    ghostOpacity = 0
+    ghostFadeTimer.restart()
+  }
+
+  function clearGhost() {
+    ghostSettling = false
+    dragGhostText = ""
+    ghostScale = 1
+    animateShift = true
   }
 
   function reload() {
@@ -465,10 +597,6 @@ Item {
     if (ctx.kind === "item" && ctx.item) {
       var item = ctx.item
       var out = [item.isCompleted ? "Reopen" : "Mark Complete"]
-      if (!item.isCompleted) {
-        out.push("Move Up")
-        out.push("Move Down")
-      }
       out.push("Edit…")
       out.push("Copy")
       out.push("Delete")
@@ -496,8 +624,6 @@ Item {
     }
     if (kind === "item" && item) {
       if (action === "Reopen" || action === "Mark Complete") complete(item)
-      else if (action === "Move Up") moveItem(item, -1)
-      else if (action === "Move Down") moveItem(item, 1)
       else if (action === "Edit…") {
         editingId = item.id
         editDraft = item.text
@@ -530,6 +656,31 @@ Item {
     id: suppressTimer
     interval: 1500
     onTriggered: root.suppressWatch = false
+  }
+
+  Timer {
+    id: edgeScrollTimer
+    interval: 16
+    repeat: true
+    running: root.rowDragging && root.edgeScrollDir !== 0 && !root.ghostSettling
+    onTriggered: {
+      var maxY = Math.max(0, listFlick.contentHeight - listFlick.height)
+      listFlick.contentY = Math.max(0, Math.min(maxY, listFlick.contentY + root.edgeScrollDir * 14))
+      if (root.dragRepeater)
+        root.dragHoverIndex = root.hoverIndexForSection(root.dragRepeater, root.dragPointerY)
+    }
+  }
+
+  Timer {
+    id: settleTimer
+    interval: 160
+    onTriggered: root.commitSettledDrag()
+  }
+
+  Timer {
+    id: ghostFadeTimer
+    interval: 140
+    onTriggered: root.clearGhost()
   }
 
   Process {
@@ -627,6 +778,8 @@ Item {
     watchChanges: false
     atomicWrites: true
     printErrors: false
+    onSaved: root.startPendingGit()
+    onSaveFailed: root.failPendingGit("Could not write commit message file")
   }
 
   FileView {
@@ -873,10 +1026,11 @@ Item {
                     width: listColumn.width
                     item: modelData
                     openIndex: index
-                    canMoveUp: index > 0 && root.trim(root.query).length === 0
-                    canMoveDown: index < root.openItems(sectionCol.modelData).length - 1 && root.trim(root.query).length === 0
                     draggable: !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
-                    dropTarget: root.rowDragging && root.dragSection === sectionCol.modelData.title && root.dragHoverIndex === index
+                    dragging: root.rowDragging && root.dragItem && root.dragItem.id === modelData.id
+                    listDragging: root.rowDragging
+                    animateShift: root.animateShift
+                    shiftY: root.rowShiftY(sectionCol.modelData.title, index)
                     expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft
@@ -896,25 +1050,14 @@ Item {
                     }
                     onEditCancelled: root.editingId = ""
                     onMenuRequested: root.ctx = { kind: "item", item: modelData }
-                    onMoveUp: root.moveItem(modelData, -1)
-                    onMoveDown: root.moveItem(modelData, 1)
-                    onDragBegan: {
-                      root.rowDragging = true
-                      root.dragItem = modelData
-                      root.dragSection = sectionCol.modelData.title
-                      root.dragHoverIndex = index
+                    onDragBegan: function (globalY) {
+                      root.beginRowDrag(openRepeater, modelData, sectionCol.modelData.title, index, globalY)
                     }
                     onDragUpdated: function (globalY) {
-                      root.dragHoverIndex = root.hoverIndexForSection(openRepeater, globalY)
+                      root.updateRowDrag(openRepeater, globalY)
                     }
                     onDragFinished: function (globalY) {
-                      var dest = root.hoverIndexForSection(openRepeater, globalY)
-                      var item = root.dragItem
-                      root.rowDragging = false
-                      root.dragItem = null
-                      root.dragSection = ""
-                      root.dragHoverIndex = -1
-                      root.reorderOpen(item, dest)
+                      root.finishRowDrag(openRepeater, globalY)
                     }
                   }
                 }
@@ -926,8 +1069,6 @@ Item {
                     required property var modelData
                     width: listColumn.width
                     item: modelData
-                    canMoveUp: false
-                    canMoveDown: false
                     expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft
@@ -961,6 +1102,75 @@ Item {
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
+            }
+          }
+        }
+
+        Item {
+          id: dragGhost
+          visible: root.ghostOpacity > 0.01 && root.dragGhostText !== ""
+          width: listFlick.width
+          height: root.dragGhostH
+          x: listFlick.x
+          y: root.ghostY
+          z: 30
+          scale: root.ghostScale
+          opacity: root.ghostOpacity
+
+          Behavior on y {
+            enabled: root.ghostSettling
+            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+          }
+          Behavior on scale {
+            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          }
+          Behavior on opacity {
+            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+          }
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: 4
+            anchors.leftMargin: 1
+            color: Qt.rgba(0, 0, 0, 0.32)
+            radius: Style.cornerRadius
+          }
+
+          Rectangle {
+            anchors.fill: parent
+            color: Color.popups.background
+            radius: Style.cornerRadius
+            border.width: 1
+            border.color: Color.accent
+            opacity: 0.98
+          }
+
+          Row {
+            anchors.fill: parent
+            anchors.leftMargin: Style.space(8)
+            anchors.rightMargin: Style.space(8)
+            spacing: Style.space(8)
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "󰄱"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.icon
+              width: Style.space(28)
+              horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              width: parent.width - Style.space(44)
+              text: root.dragGhostText
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              wrapMode: Text.Wrap
+              maximumLineCount: 8
+              elide: Text.ElideNone
             }
           }
         }
