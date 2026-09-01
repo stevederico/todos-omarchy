@@ -13,8 +13,8 @@ Text {
 
   width: implicitWidth
   height: inkHeight
-  x: Math.round((parent.width - width) / 2)
-  y: Math.round((parent.height - inkHeight) / 2)
+  x: parent ? Math.round((parent.width - width) / 2) : 0
+  y: parent ? Math.round((parent.height - inkHeight) / 2) : 0
   horizontalAlignment: Text.AlignHCenter
   verticalAlignment: Text.AlignVCenter
 }

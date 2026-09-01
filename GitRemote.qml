@@ -51,6 +51,7 @@ Item {
     id: sourcesFile
     path: root.configDir + "/sources.json"
     watchChanges: true
+    blockLoading: true
     printErrors: false
     onFileChanged: reload()
   }

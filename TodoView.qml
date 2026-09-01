@@ -335,7 +335,8 @@ Item {
       var result = Doc.toggleComplete(lines, item.text, item.section, item.lineIndex, item.isCompleted)
       var extra = []
       if (result.completed) {
-        var existing = changelogFile.text()
+        var existing = ""
+        try { existing = changelogFile.text() } catch (e) { existing = "" }
         changelogFile.setText(Doc.insertChangelogEntry(existing, Doc.todayHeader(), "  " + item.text))
         extra.push(changelogPath)
       }
@@ -749,6 +750,7 @@ Item {
     id: changelogFile
     path: root.changelogPath
     watchChanges: false
+    blockLoading: true
     atomicWrites: true
     printErrors: false
   }

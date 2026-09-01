@@ -37,7 +37,6 @@ Item {
   function injectView() {
     if (!view) return
     view.compact = false
-    view.closeRequested.connect(root.requestClose)
   }
 
   function syncRemote() {
@@ -74,5 +73,10 @@ Item {
       source: Qt.resolvedUrl("../TodoView.qml")
       onLoaded: root.injectView()
     }
+  }
+
+  Connections {
+    target: viewLoader.item
+    function onCloseRequested() { root.requestClose() }
   }
 }

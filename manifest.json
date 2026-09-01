@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "sd.todo-omarchy",
   "name": "Todo Omarchy",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "author": "sd",
   "license": "MIT",
   "description": "Omarchy bar and window app: open todos from markdown (- item lines)",
@@ -10,7 +10,7 @@
     "bar-widget",
     "panel"
   ],
-  "keepLoaded": true,
+  "keepLoaded": false,
   "entryPoints": {
     "barWidget": "BarWidget.qml",
     "panel": "window/TodoApp.qml"

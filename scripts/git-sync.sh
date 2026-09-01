@@ -52,13 +52,25 @@ done
 ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null) || fail "Not a git repository"
 ROOT=$(readlink -f "$ROOT") || fail "cannot resolve git root"
 
+resolve() {
+  local p=$1
+  if [[ -e $p ]]; then
+    readlink -f "$p"
+    return
+  fi
+  local dir
+  dir=$(readlink -f "$(dirname -- "$p")") || return 1
+  printf '%s/%s\n' "$dir" "$(basename -- "$p")"
+}
+
 RELS=()
 for f in "$@"; do
-  F=$(readlink -f "$f") || fail "cannot resolve path"
+  F=$(resolve "$f") || fail "cannot resolve path"
   case "$F" in
     "$ROOT" | "$ROOT"/*) ;;
     *) fail "File outside git root" ;;
   esac
+  [[ -e $F ]] || continue
   REL="${F#"$ROOT"/}"
   RELS+=("$REL")
 done
@@ -83,6 +95,11 @@ if ! git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/nul
   exit 0
 fi
 
+ERR=""
+cleanup() {
+  [[ -n ${ERR:-} && -f $ERR ]] && rm -f "$ERR"
+}
+trap cleanup EXIT
 ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-push.XXXXXX") || {
   echo COMMITTED
   echo "PUSH_ERROR:mktemp failed"
@@ -96,5 +113,4 @@ else
   tr '\n' ' ' <"$ERR"
   printf '\n'
 fi
-rm -f "$ERR"
 exit 0

@@ -1,3 +1,9 @@
+0.15.0
+
+  Unload window when hidden
+  Skip missing git extras
+  Wait for sources before sync
+
 0.14.0
 
   Remove git footer button

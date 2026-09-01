@@ -73,6 +73,23 @@ test("without --push the commit stays local even if a remote exists", () => {
   fs.rmSync(bare, { recursive: true, force: true })
 })
 
+test("skips a missing extra file and still commits the todo", () => {
+  const root = setupRepo()
+  fs.writeFileSync(path.join(root, "todos.md"), "- hello\n")
+  const missing = path.join(root, "CHANGELOG.md")
+  const msgFile = path.join(root, ".commit-msg")
+  fs.writeFileSync(msgFile, "Complete hello")
+  const result = spawnSync("bash", [
+    script, "--dir", root, "--message-file", msgFile, "--",
+    path.join(root, "todos.md"), missing
+  ], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } })
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /COMMITTED/)
+  const log = sh(root, ["log", "-1", "--pretty=%s"])
+  assert.equal(log.stdout.trim(), "Complete hello")
+  fs.rmSync(root, { recursive: true, force: true })
+})
+
 test("refuses files outside the git root", () => {
   const root = setupRepo()
   const outside = path.join(os.tmpdir(), "todo-omarchy-outside.md")
