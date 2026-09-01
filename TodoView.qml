@@ -831,8 +831,8 @@ Item {
                     required property var modelData
                     height: tabRow.height
                     text: modelData.id === root.selectedID
-                      ? (modelData.title + " " + root.openCount)
-                      : modelData.title
+                      ? (Doc.tabTitle(modelData.title) + " " + root.openCount)
+                      : Doc.tabTitle(modelData.title)
                     selected: modelData.id === root.selectedID
                     foreground: root.foreground
                     fontFamily: root.fontFamily

@@ -1,3 +1,7 @@
+0.21.0
+
+  Capitalize tab titles
+
 0.20.0
 
   Keep footer on one line

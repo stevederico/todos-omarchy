@@ -206,6 +206,13 @@ test("changelog inserts under today's header or prepends a block", () => {
   assert.ok(fresh.startsWith("08/30/26\n\n  shipped\n"))
 })
 
+test("tabTitle capitalizes each word", () => {
+  assert.equal(Doc.tabTitle("books"), "Books")
+  assert.equal(Doc.tabTitle("Todos"), "Todos")
+  assert.equal(Doc.tabTitle("my list"), "My List")
+  assert.equal(Doc.tabTitle("  deals  "), "Deals")
+})
+
 test("defaultTitle uses parent folder for todos.md", () => {
   assert.equal(Doc.defaultTitle("/home/user/todos.md"), "user")
   assert.equal(Doc.defaultTitle("/home/user/marketing/todo.md"), "marketing")

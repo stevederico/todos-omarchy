@@ -458,6 +458,18 @@ function insertChangelogEntry(content, dateHeader, entryLine) {
   return [dateHeader, "", entryLine, ""].concat(lines).join("\n")
 }
 
+function tabTitle(title) {
+  var raw = trim(title)
+  if (raw.length === 0) return ""
+  var parts = raw.split(/\s+/)
+  var out = []
+  for (var i = 0; i < parts.length; i++) {
+    var w = parts[i]
+    out.push(w.charAt(0).toUpperCase() + w.slice(1))
+  }
+  return out.join(" ")
+}
+
 function defaultTitle(path) {
   var cleaned = String(path || "").replace(/\/+$/, "")
   var parts = cleaned.split("/")
@@ -525,6 +537,7 @@ if (typeof module !== "undefined") {
     commitMessage: commitMessage,
     todayHeader: todayHeader,
     insertChangelogEntry: insertChangelogEntry,
+    tabTitle: tabTitle,
     defaultTitle: defaultTitle,
     defaultTodosPath: defaultTodosPath,
     filterSections: filterSections
