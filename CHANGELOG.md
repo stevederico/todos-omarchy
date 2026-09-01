@@ -1,3 +1,7 @@
+0.29.0
+
+  Center footer icons
+
 0.28.0
 
   Drop extra footer inset

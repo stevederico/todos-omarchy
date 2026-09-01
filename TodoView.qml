@@ -1152,7 +1152,7 @@ Item {
 
           Item {
             width: parent.width
-            height: Math.max(Style.spacing.controlHeight, footerActions.implicitHeight)
+            height: Style.spacing.controlHeight
 
             Row {
               id: footerActions
@@ -1160,10 +1160,14 @@ Item {
               anchors.right: versionSlot.left
               anchors.rightMargin: versionSlot.visible ? Style.space(8) : 0
               anchors.verticalCenter: parent.verticalCenter
+              height: parent.height
               spacing: Style.space(8)
 
-              Button {
+              HeaderButton {
+                height: parent.height
                 iconText: "󰍉"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 selected: root.showFilter || root.trim(root.query).length > 0
                 bordered: root.showFilter || root.trim(root.query).length > 0
                 tooltipText: root.showFilter ? "Hide filter" : (root.trim(root.query).length > 0 ? "Filter on" : "Filter")
@@ -1175,30 +1179,42 @@ Item {
                   }
                 }
               }
-              Button {
+              HeaderButton {
+                height: parent.height
                 iconText: "󰑐"
                 tooltipText: "Refresh"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 onClicked: root.refresh()
               }
-              Button {
+              HeaderButton {
+                height: parent.height
                 iconText: "󰈙"
                 tooltipText: "Open file"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 onClicked: root.openInEditor()
               }
-              Button {
+              HeaderButton {
                 visible: root.compact
+                height: parent.height
                 iconText: "󰖯"
                 tooltipText: "Open window"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 onClicked: root.openWindowRequested()
               }
-              Button {
+              HeaderButton {
                 visible: root.completedCount > 0
+                height: parent.height
                 iconText: root.showCompleted ? "󰈉" : "󰈈"
                 selected: root.showCompleted
                 bordered: root.showCompleted
                 tooltipText: root.showCompleted
                   ? ("Hide completed (" + root.completedCount + ")")
                   : ("Show completed (" + root.completedCount + ")")
+                foreground: root.foreground
+                fontFamily: root.fontFamily
                 onClicked: root.showCompleted = !root.showCompleted
               }
             }
