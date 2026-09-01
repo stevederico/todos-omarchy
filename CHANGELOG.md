@@ -1,3 +1,7 @@
+0.23.0
+
+  Stripe list rows
+
 0.22.0
 
   Icon footer buttons

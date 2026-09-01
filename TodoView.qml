@@ -976,6 +976,7 @@ Item {
                     width: listColumn.width
                     item: modelData
                     openIndex: index
+                    striped: index % 2 === 1
                     draggable: !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
                     dragging: root.rowDragging && root.dragItem && root.dragItem.id === modelData.id
                     listDragging: root.rowDragging
@@ -1017,8 +1018,10 @@ Item {
 
                   TodoRow {
                     required property var modelData
+                    required property int index
                     width: listColumn.width
                     item: modelData
+                    striped: (openRepeater.count + index) % 2 === 1
                     expanded: root.expandedId === modelData.id
                     editing: root.editingId === modelData.id
                     draft: root.editDraft

@@ -14,6 +14,7 @@ Item {
   property bool dragging: false
   property bool listDragging: false
   property bool animateShift: true
+  property bool striped: false
   property real shiftY: 0
   property string draft: ""
   property color foreground: Color.foreground
@@ -55,10 +56,16 @@ Item {
 
   Rectangle {
     anchors.fill: parent
+    color: row.foreground
+    opacity: row.striped ? Style.normalFillAlpha : 0
+  }
+
+  Rectangle {
+    anchors.fill: parent
     anchors.margins: Style.space(2)
     radius: Style.cornerRadius
     color: row.foreground
-    opacity: dragArea.containsMouse && !row.dragging && !row.listDragging ? 0.06 : 0
+    opacity: dragArea.containsMouse && !row.dragging && !row.listDragging ? Style.hoverFillAlpha : 0
     Behavior on opacity { NumberAnimation { duration: 90 } }
   }
 
