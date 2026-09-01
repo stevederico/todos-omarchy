@@ -18,6 +18,7 @@ fail() {
 
 DIR=""
 PUSH=0
+SKIP_REBASE=0
 ERR=""
 
 cleanup() {
@@ -33,6 +34,10 @@ while (( $# > 0 )); do
       ;;
     --push)
       PUSH=1
+      shift
+      ;;
+    --skip-rebase)
+      SKIP_REBASE=1
       shift
       ;;
     -*)
@@ -59,7 +64,8 @@ fi
 
 LOCK="$ROOT/.git/todo-omarchy-sync.lock"
 exec 9>"$LOCK" || fail "cannot lock"
-if ! flock -w 25 9; then
+LOCK_WAIT=${TODO_OMARCHY_LOCK_WAIT:-25}
+if ! flock -w "$LOCK_WAIT" 9; then
   echo BUSY
   exit 0
 fi
@@ -67,9 +73,7 @@ fi
 ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-pull.XXXXXX") || fail "mktemp failed"
 
 if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
-  printf 'FETCH_ERROR:'
-  tr '\n' ' ' <"$ERR"
-  printf '\n'
+  echo FETCH_ERROR
   exit 0
 fi
 
@@ -95,6 +99,10 @@ if git -C "$ROOT" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
 fi
 
 if ! git -C "$ROOT" merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
+  if (( SKIP_REBASE == 1 )); then
+    echo DIVERGED
+    exit 0
+  fi
   if ! git -C "$ROOT" diff --quiet || ! git -C "$ROOT" diff --cached --quiet; then
     echo DIVERGED
     exit 0

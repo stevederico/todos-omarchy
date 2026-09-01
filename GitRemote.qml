@@ -12,6 +12,10 @@ Item {
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
   property var queue: []
   property bool inFlight: false
+  property bool skipRebase: false
+  property string lastOutcome: ""
+
+  signal syncFinished(string outcome)
 
   function scriptPath() {
     var url = String(Qt.resolvedUrl("scripts/git-pull.sh") || "")
@@ -37,8 +41,20 @@ Item {
     for (var i = 1; i < queue.length; i++) rest.push(queue[i])
     queue = rest
     inFlight = true
-    proc.command = [scriptPath(), "--dir", dir, "--push"]
+    var args = [scriptPath(), "--dir", dir, "--push"]
+    if (root.skipRebase) args.push("--skip-rebase")
+    proc.command = args
     proc.running = true
+  }
+
+  function classify(out) {
+    if (out.indexOf("DIVERGED") >= 0) return "DIVERGED"
+    if (out.indexOf("REBASED_PUSHED") >= 0) return "REBASED_PUSHED"
+    if (out.indexOf("REBASED") >= 0) return "REBASED"
+    if (out.indexOf("PULLED") >= 0) return "PULLED"
+    if (out.indexOf("PUSHED") >= 0) return "PUSHED"
+    if (out.indexOf("BUSY") >= 0) return "BUSY"
+    return "ok"
   }
 
   function finished() {
@@ -60,7 +76,12 @@ Item {
     id: proc
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.finished()
+      onStreamFinished: {
+        var outcome = root.classify(String(text || ""))
+        root.lastOutcome = outcome
+        root.syncFinished(outcome)
+        root.finished()
+      }
     }
     onExited: function () { root.finished() }
   }

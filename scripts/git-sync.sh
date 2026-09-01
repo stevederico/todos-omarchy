@@ -2,6 +2,7 @@
 # Commit (and optionally push) listed files in their git repo.
 # The commit message is always read from a file with `git commit -F`.
 # Paths and the message never enter the script via interpolation.
+# Shares .git/todo-omarchy-sync.lock with git-pull.sh.
 set -u
 export GIT_EDITOR=true
 export GIT_TERMINAL_PROMPT=0
@@ -76,73 +77,185 @@ for f in "$@"; do
 done
 (( ${#RELS[@]} > 0 )) || fail "no files"
 
-git -C "$ROOT" add -- "${RELS[@]}" || fail "git add failed"
-STATUS=$(git -C "$ROOT" status --porcelain -- "${RELS[@]}")
-if [[ -z $STATUS ]]; then
-  echo COMMITTED_EMPTY
-  exit 0
-fi
-
-timeout 8 git -C "$ROOT" commit -F "$MSGFILE" >/dev/null || fail "git commit failed"
-
-if (( PUSH == 0 )); then
-  echo COMMITTED
-  exit 0
-fi
-
-if ! git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
-  echo COMMITTED
+LOCK="$ROOT/.git/todo-omarchy-sync.lock"
+exec 9>"$LOCK" || fail "cannot lock"
+LOCK_WAIT=${TODO_OMARCHY_LOCK_WAIT:-25}
+if ! flock -w "$LOCK_WAIT" 9; then
+  echo BUSY
   exit 0
 fi
 
 ERR=""
+SNAP=""
 cleanup() {
   [[ -n ${ERR:-} && -f $ERR ]] && rm -f "$ERR"
+  [[ -n ${SNAP:-} && -d $SNAP ]] && rm -rf "$SNAP"
 }
 trap cleanup EXIT
-ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-push.XXXXXX") || {
-  echo COMMITTED
-  exit 0
+ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-push.XXXXXX") || fail "mktemp failed"
+SNAP=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-snap.XXXXXX") || fail "mktemp failed"
+
+snapshot_rels() {
+  local rel
+  for rel in "${RELS[@]}"; do
+    mkdir -p "$SNAP/$(dirname -- "$rel")"
+    if [[ -e "$ROOT/$rel" ]]; then
+      cp -p "$ROOT/$rel" "$SNAP/$rel"
+    fi
+  done
+}
+
+restore_rels() {
+  local rel
+  for rel in "${RELS[@]}"; do
+    if [[ -e "$SNAP/$rel" ]]; then
+      mkdir -p "$ROOT/$(dirname -- "$rel")"
+      cp -p "$SNAP/$rel" "$ROOT/$rel"
+    fi
+  done
+}
+
+reset_listed_to_head() {
+  local rel
+  for rel in "${RELS[@]}"; do
+    if git -C "$ROOT" cat-file -e "HEAD:$rel" 2>/dev/null; then
+      git -C "$ROOT" checkout HEAD -- "$rel" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
+other_dirty() {
+  local line path skip rel
+  while IFS= read -r line; do
+    [[ -z $line ]] && continue
+    path=${line:3}
+    if [[ $path == *" -> "* ]]; then
+      path=${path##* -> }
+    fi
+    path=${path#\"}
+    path=${path%\"}
+    skip=0
+    for rel in "${RELS[@]}"; do
+      if [[ $path == "$rel" ]]; then
+        skip=1
+        break
+      fi
+    done
+    (( skip == 0 )) && return 0
+  done < <(git -C "$ROOT" status --porcelain)
+  return 1
+}
+
+commit_listed() {
+  git -C "$ROOT" add -- "${RELS[@]}" || fail "git add failed"
+  local status
+  status=$(git -C "$ROOT" status --porcelain -- "${RELS[@]}")
+  if [[ -z $status ]]; then
+    echo COMMITTED_EMPTY
+    return 1
+  fi
+  timeout 8 git -C "$ROOT" commit -F "$MSGFILE" >/dev/null || fail "git commit failed"
+  return 0
 }
 
 push_quiet() {
   timeout 20 git -C "$ROOT" push --quiet >/dev/null 2>"$ERR"
 }
 
-if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
+rebase_onto_upstream() {
+  timeout 20 git -C "$ROOT" rebase '@{u}' >/dev/null 2>"$ERR"
+}
+
+finish_push() {
+  local rebased=$1
   if push_quiet; then
-    echo PUSHED
+    if (( rebased )); then
+      echo REBASED_PUSHED
+    else
+      echo PUSHED
+    fi
   else
     echo COMMITTED
   fi
+}
+
+post_commit_rebase() {
+  if rebase_onto_upstream; then
+    finish_push 1
+  else
+    git -C "$ROOT" rebase --abort >/dev/null 2>&1 || true
+    restore_rels
+    echo DIVERGED
+  fi
+}
+
+snapshot_rels
+
+if (( PUSH == 0 )); then
+  commit_listed || exit 0
+  echo COMMITTED
   exit 0
 fi
 
-LOCAL=$(git -C "$ROOT" rev-parse HEAD) || { echo COMMITTED; exit 0; }
-REMOTE=$(git -C "$ROOT" rev-parse '@{u}') || { echo COMMITTED; exit 0; }
+if ! git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+  commit_listed || exit 0
+  echo COMMITTED
+  exit 0
+fi
+
+if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
+  commit_listed || exit 0
+  finish_push 0
+  exit 0
+fi
+
+LOCAL=$(git -C "$ROOT" rev-parse HEAD) || { commit_listed || exit 0; echo COMMITTED; exit 0; }
+REMOTE=$(git -C "$ROOT" rev-parse '@{u}') || { commit_listed || exit 0; echo COMMITTED; exit 0; }
 
 if [[ $LOCAL == "$REMOTE" ]]; then
-  echo PUSHED
+  commit_listed || exit 0
+  finish_push 0
   exit 0
 fi
 
 if git -C "$ROOT" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
-  if push_quiet; then
-    echo PUSHED
-  else
-    echo COMMITTED
-  fi
+  commit_listed || exit 0
+  finish_push 0
   exit 0
 fi
 
-if timeout 20 git -C "$ROOT" rebase '@{u}' >/dev/null 2>"$ERR"; then
-  if push_quiet; then
-    echo REBASED_PUSHED
-  else
-    echo COMMITTED
+if git -C "$ROOT" merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
+  if ! other_dirty; then
+    reset_listed_to_head
+    if timeout 8 git -C "$ROOT" merge --ff-only '@{u}' >/dev/null 2>"$ERR"; then
+      restore_rels
+      commit_listed || exit 0
+      finish_push 0
+      exit 0
+    fi
+    restore_rels
   fi
-else
-  git -C "$ROOT" rebase --abort >/dev/null 2>&1 || true
-  echo DIVERGED
+  restore_rels
+  commit_listed || exit 0
+  post_commit_rebase
+  exit 0
 fi
+
+if ! other_dirty; then
+  reset_listed_to_head
+  if rebase_onto_upstream; then
+    restore_rels
+    commit_listed || exit 0
+    finish_push 1
+    exit 0
+  fi
+  git -C "$ROOT" rebase --abort >/dev/null 2>&1 || true
+  restore_rels
+  echo DIVERGED
+  exit 0
+fi
+
+restore_rels
+commit_listed || exit 0
+post_commit_rebase
 exit 0

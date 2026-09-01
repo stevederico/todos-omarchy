@@ -5,7 +5,7 @@ const assert = require("node:assert/strict")
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
-const { spawnSync } = require("child_process")
+const { spawn, spawnSync } = require("child_process")
 
 const script = path.join(__dirname, "..", "scripts", "git-pull.sh")
 
@@ -16,7 +16,8 @@ function gitEnv() {
     GIT_AUTHOR_EMAIL: "test@example.test",
     GIT_COMMITTER_NAME: "Test",
     GIT_COMMITTER_EMAIL: "test@example.test",
-    GIT_TERMINAL_PROMPT: "0"
+    GIT_TERMINAL_PROMPT: "0",
+    TODO_OMARCHY_LOCK_WAIT: "1"
   }
 }
 
@@ -63,6 +64,20 @@ function setupRemotePair() {
 function cleanup(dirs) {
   for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true })
 }
+
+test("BUSY when the pull lock is held", () => {
+  const pair = setupRemotePair()
+  const lock = path.join(pair.local, ".git/todo-omarchy-sync.lock")
+  const held = spawn("bash", ["-c", "exec 9>\"$1\"; flock 9; sleep 20", "lock", lock], {
+    stdio: "ignore"
+  })
+  const started = Date.now()
+  while (Date.now() - started < 1000 && !fs.existsSync(lock)) {}
+  const result = runPull(pair.local, ["--push"])
+  held.kill("SIGTERM")
+  assert.match(result.stdout, /BUSY/)
+  cleanup([pair.local, pair.bare, pair.other])
+})
 
 test("git-pull.sh is argv-driven and executable as a file", () => {
   assert.equal(path.basename(script), "git-pull.sh")
@@ -159,6 +174,22 @@ test("diverged non-overlapping commits rebase then push", () => {
   const text = fs.readFileSync(path.join(pair.local, "todos.md"), "utf8")
   assert.equal(text, "- local only\n")
   assert.ok(fs.existsSync(path.join(pair.local, "notes.md")))
+  cleanup([pair.local, pair.bare, pair.other])
+})
+
+test("skip-rebase leaves a diverge alone", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local branch\n")
+  sh(pair.local, ["add", "todos.md"])
+  sh(pair.local, ["commit", "-m", "local commit"])
+  fs.writeFileSync(path.join(pair.other, "notes.md"), "from remote\n")
+  sh(pair.other, ["add", "notes.md"])
+  sh(pair.other, ["commit", "-m", "remote commit"])
+  sh(pair.other, ["push", "origin", "master"])
+  const result = runPull(pair.local, ["--push", "--skip-rebase"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /DIVERGED/)
+  assert.equal(fs.existsSync(path.join(pair.local, "notes.md")), false)
   cleanup([pair.local, pair.bare, pair.other])
 })
 

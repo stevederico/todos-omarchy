@@ -26,6 +26,7 @@ BarWidget {
   }
 
   function syncRemote() {
+    remoteSync.skipRebase = panelLoader.item ? panelLoader.item.notSynced === true : false
     remoteSync.enqueueAll()
   }
 
@@ -60,6 +61,10 @@ BarWidget {
 
   GitRemote {
     id: remoteSync
+    onSyncFinished: function (outcome) {
+      if (panelLoader.item && panelLoader.item.applySyncOutcome)
+        panelLoader.item.applySyncOutcome(outcome)
+    }
   }
 
   Loader {

@@ -5,7 +5,7 @@ const assert = require("node:assert/strict")
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
-const { spawnSync } = require("child_process")
+const { spawn, spawnSync } = require("child_process")
 
 const script = path.join(__dirname, "..", "scripts", "git-sync.sh")
 
@@ -34,7 +34,7 @@ function runSync(root, message, extraArgs = []) {
   fs.writeFileSync(msgFile, message)
   return spawnSync("bash", [script, "--dir", root, "--message-file", msgFile, ...extraArgs, "--", path.join(root, "todos.md")], {
     encoding: "utf8",
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", TODO_OMARCHY_LOCK_WAIT: "1" }
   })
 }
 
@@ -143,10 +143,39 @@ test("conflicting remote edit stays local and prints no git stderr", () => {
   fs.writeFileSync(path.join(pair.local, "todos.md"), "- local line\n")
   const result = runSync(pair.local, "Reorder local", ["--push"])
   assert.equal(result.status, 0, result.stderr)
-  assert.match(result.stdout, /DIVERGED|REBASED_PUSHED|PUSHED/)
+  assert.match(result.stdout, /DIVERGED/)
   assert.doesNotMatch(result.stdout, /PUSH_ERROR|hint:|non-fast-forward/)
   const localText = fs.readFileSync(path.join(pair.local, "todos.md"), "utf8")
   assert.match(localText, /local line/)
+  fs.rmSync(pair.local, { recursive: true, force: true })
+  fs.rmSync(pair.bare, { recursive: true, force: true })
+  fs.rmSync(pair.other, { recursive: true, force: true })
+})
+
+test("BUSY when the sync lock is held", () => {
+  const root = setupRepo()
+  const lock = path.join(root, ".git/todo-omarchy-sync.lock")
+  const held = spawn("bash", ["-c", "exec 9>\"$1\"; flock 9; sleep 20", "lock", lock], {
+    stdio: "ignore"
+  })
+  const started = Date.now()
+  while (Date.now() - started < 1000 && !fs.existsSync(lock)) {}
+  fs.writeFileSync(path.join(root, "todos.md"), "- busy\n")
+  const result = runSync(root, "Add busy", ["--push"])
+  held.kill("SIGTERM")
+  assert.match(result.stdout, /BUSY/)
+  assert.equal(fs.readFileSync(path.join(root, "todos.md"), "utf8"), "- busy\n")
+  fs.rmSync(root, { recursive: true, force: true })
+})
+
+test("dirty extra file is left alone", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.local, "notes.md"), "scratch\n")
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local drag\n")
+  const result = runSync(pair.local, "Reorder local", ["--push"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /PUSHED|COMMITTED/)
+  assert.equal(fs.readFileSync(path.join(pair.local, "notes.md"), "utf8"), "scratch\n")
   fs.rmSync(pair.local, { recursive: true, force: true })
   fs.rmSync(pair.bare, { recursive: true, force: true })
   fs.rmSync(pair.other, { recursive: true, force: true })

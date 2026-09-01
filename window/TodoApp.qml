@@ -40,12 +40,21 @@ Item {
   }
 
   function syncRemote() {
-    if (remoteLoader.item && remoteLoader.item.enqueueAll) remoteLoader.item.enqueueAll()
+    if (!remoteLoader.item || !remoteLoader.item.enqueueAll) return
+    remoteLoader.item.skipRebase = view && view.notSynced === true
+    remoteLoader.item.enqueueAll()
   }
 
   Loader {
     id: remoteLoader
     source: Qt.resolvedUrl("../GitRemote.qml")
+  }
+
+  Connections {
+    target: remoteLoader.item
+    function onSyncFinished(outcome) {
+      if (view && view.applySyncOutcome) view.applySyncOutcome(outcome)
+    }
   }
 
   FloatingWindow {

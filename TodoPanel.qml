@@ -16,6 +16,8 @@ Panel {
 
   function reload() { view.reload() }
   function refresh() { if (view.refresh) view.refresh(); else view.reload() }
+  function applySyncOutcome(outcome) { view.applySyncOutcome(outcome) }
+  readonly property bool notSynced: view.notSynced
   function openInEditor() { view.openInEditor() }
   function openWindow() {
     root.close()

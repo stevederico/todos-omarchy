@@ -1,3 +1,9 @@
+0.34.0
+
+  Lock edit sync
+  Fetch before commit
+  Footer not-synced chip
+
 0.33.0
 
   Rebase on open

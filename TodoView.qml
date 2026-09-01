@@ -39,6 +39,8 @@ Item {
   property double lastPullAt: 0
   property string lastPullDir: ""
   property var pendingGit: null
+  property var lastGitJob: null
+  property bool notSynced: false
 
   property string query: ""
   property bool showCompleted: false
@@ -175,8 +177,24 @@ Item {
   }
 
   function refresh() {
+    notSynced = false
+    lastError = ""
     todoFile.reload()
     schedulePull(true)
+  }
+
+  function applySyncOutcome(outcome) {
+    if (outcome === "PULLED" || outcome === "REBASED" || outcome === "REBASED_PUSHED") {
+      notSynced = false
+      lastError = ""
+      todoFile.reload()
+      changelogFile.reload()
+      return
+    }
+    if (outcome === "DIVERGED") {
+      notSynced = true
+      lastError = ""
+    }
   }
 
   function loadSources(raw) {
@@ -285,19 +303,26 @@ Item {
       for (var i = 0; i < extraFiles.length; i++) args.push(extraFiles[i])
     }
     pendingGit = { token: token, status: status, args: args }
+    lastGitJob = pendingGit
     mkdirProc.running = true
     commitMsgFile.setText(String(message || "") + "\n")
+  }
+
+  function startGitJob(job, isRetry) {
+    if (!job) return
+    gitProc.running = false
+    gitProc.command = job.args
+    gitProc.token = job.token
+    gitProc.status = job.status
+    gitProc.retried = isRetry === true
+    gitProc.running = true
   }
 
   function startPendingGit() {
     if (!pendingGit) return
     var job = pendingGit
     pendingGit = null
-    gitProc.running = false
-    gitProc.command = job.args
-    gitProc.token = job.token
-    gitProc.status = job.status
-    gitProc.running = true
+    startGitJob(job, false)
   }
 
   function failPendingGit(err) {
@@ -651,6 +676,17 @@ Item {
     onTriggered: root.clearGhost()
   }
 
+  Timer {
+    id: busyRetryTimer
+    interval: 400
+    onTriggered: {
+      if (root.lastGitJob && root.lastGitJob.token === root.statusToken)
+        root.startGitJob(root.lastGitJob, true)
+      else
+        root.isBusy = false
+    }
+  }
+
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", root.configDir]
@@ -660,25 +696,35 @@ Item {
     id: gitProc
     property int token: 0
     property string status: ""
+    property bool retried: false
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         if (gitProc.token !== root.statusToken) return
         var out = String(text || "")
+        if (out.indexOf("BUSY") >= 0) {
+          if (!gitProc.retried) {
+            gitProc.retried = true
+            busyRetryTimer.restart()
+            return
+          }
+          root.isBusy = false
+          return
+        }
         var outcome = "committed"
-        var err = ""
         if (out.indexOf("FAILED:") >= 0) {
           outcome = "failed"
-          err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
         } else if (out.indexOf("REBASED_PUSHED") >= 0 || out.indexOf("PUSHED") >= 0) {
           outcome = "pushed"
+          root.notSynced = false
           if (out.indexOf("REBASED_PUSHED") >= 0) {
             todoFile.reload()
             changelogFile.reload()
           }
         } else if (out.indexOf("DIVERGED") >= 0) {
           outcome = "committed"
-        } else if (out.indexOf("COMMITTED") >= 0) {
+          root.notSynced = true
+        } else if (out.indexOf("COMMITTED") >= 0 || out.indexOf("COMMITTED_EMPTY") >= 0) {
           outcome = "committed"
         }
         var allowed = {}
@@ -691,8 +737,7 @@ Item {
           else if (outcome === "pushed") root.lastStatus = gitProc.status + " · pushed"
           else root.lastStatus = gitProc.status + " · committed"
         }
-        if (err !== "") root.lastError = err
-        else root.lastError = ""
+        root.lastError = ""
         root.isBusy = false
       }
     }
@@ -708,16 +753,12 @@ Item {
       onStreamFinished: {
         root.pullInFlight = false
         var out = String(text || "")
-        if (out.indexOf("PULLED") >= 0 || out.indexOf("REBASED") >= 0) {
-          root.lastError = ""
-          todoFile.reload()
-          changelogFile.reload()
-          return
-        }
-        if (out.indexOf("FAILED:") >= 0) {
-          var err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
-          if (err !== "") root.lastError = err
-        }
+        var outcome = "ok"
+        if (out.indexOf("DIVERGED") >= 0) outcome = "DIVERGED"
+        else if (out.indexOf("REBASED_PUSHED") >= 0) outcome = "REBASED_PUSHED"
+        else if (out.indexOf("REBASED") >= 0) outcome = "REBASED"
+        else if (out.indexOf("PULLED") >= 0) outcome = "PULLED"
+        root.applySyncOutcome(outcome)
       }
     }
     onExited: function () {
@@ -1226,7 +1267,7 @@ Item {
 
             Item {
               id: versionSlot
-              visible: root.appVersion !== "" || root.lastError !== "" || root.lastStatus !== ""
+              visible: root.appVersion !== "" || root.lastError !== "" || root.lastStatus !== "" || root.notSynced
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
               width: visible ? statusRow.implicitWidth : 0
@@ -1238,8 +1279,18 @@ Item {
                 height: parent.height
                 spacing: Style.space(8)
 
+                HeaderButton {
+                  visible: root.notSynced
+                  height: parent.height
+                  text: "Not synced"
+                  tooltipText: "Remote changed the same lines. Local list kept."
+                  foreground: root.bar ? root.bar.urgent : Color.urgent
+                  fontFamily: root.fontFamily
+                  onClicked: root.refresh()
+                }
+
                 Text {
-                  visible: root.lastError !== "" || root.lastStatus !== ""
+                  visible: !root.notSynced && (root.lastError !== "" || root.lastStatus !== "")
                   anchors.verticalCenter: parent.verticalCenter
                   width: visible ? Math.min(implicitWidth, Style.space(180)) : 0
                   text: root.lastError !== "" ? root.lastError : root.lastStatus
