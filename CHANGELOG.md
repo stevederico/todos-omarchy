@@ -1,3 +1,7 @@
+0.22.0
+
+  Icon footer buttons
+
 0.21.0
 
   Capitalize tab titles

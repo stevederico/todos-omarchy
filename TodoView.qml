@@ -1153,10 +1153,10 @@ Item {
             clip: true
 
             Button {
-              text: root.showFilter ? "Hide Filter" : (root.trim(root.query).length > 0 ? "Filter (on)" : "Filter")
-              fontSize: Style.font.caption
+              iconText: "󰍉"
+              selected: root.showFilter || root.trim(root.query).length > 0
               bordered: root.showFilter || root.trim(root.query).length > 0
-              tooltipText: "Search open items in this list"
+              tooltipText: root.showFilter ? "Hide filter" : (root.trim(root.query).length > 0 ? "Filter on" : "Filter")
               onClicked: {
                 if (root.showFilter) {
                   root.showFilter = false
@@ -1166,30 +1166,30 @@ Item {
               }
             }
             Button {
-              text: "Refresh"
-              fontSize: Style.font.caption
-              tooltipText: "Reload the file and fetch git"
+              iconText: "󰑐"
+              tooltipText: "Refresh"
               onClicked: root.refresh()
             }
             Button {
-              text: "Open File"
-              fontSize: Style.font.caption
-              tooltipText: "Open this markdown file in the editor"
+              iconText: "󰈙"
+              tooltipText: "Open file"
               onClicked: root.openInEditor()
             }
             Button {
               visible: root.compact
-              text: "Open Window"
-              fontSize: Style.font.caption
+              iconText: "󰖯"
               bordered: true
-              tooltipText: "Pop the list out into a tiled window"
+              tooltipText: "Open window"
               onClicked: root.openWindowRequested()
             }
             Button {
               visible: root.completedCount > 0
-              text: root.showCompleted ? "Hide Completed" : ("Show Completed (" + root.completedCount + ")")
-              fontSize: Style.font.caption
-              tooltipText: "Show or hide finished items"
+              iconText: root.showCompleted ? "󰈉" : "󰈈"
+              selected: root.showCompleted
+              bordered: root.showCompleted
+              tooltipText: root.showCompleted
+                ? ("Hide completed (" + root.completedCount + ")")
+                : ("Show completed (" + root.completedCount + ")")
               onClicked: root.showCompleted = !root.showCompleted
             }
             Item {
