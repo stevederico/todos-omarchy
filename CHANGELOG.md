@@ -1,3 +1,7 @@
+0.18.0
+
+  Remove reveal footer button
+
 0.17.0
 
   Open file in editor terminal

@@ -1189,12 +1189,6 @@ Item {
               onClicked: root.openInEditor()
             }
             Button {
-              text: "Reveal"
-              fontSize: Style.font.caption
-              tooltipText: "Open the folder that contains this file"
-              onClicked: root.reveal()
-            }
-            Button {
               visible: root.compact
               text: "Open Window"
               fontSize: Style.font.caption
