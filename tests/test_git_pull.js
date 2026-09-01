@@ -29,8 +29,8 @@ function sh(cwd, args, opts = {}) {
   })
 }
 
-function runPull(dir) {
-  return spawnSync("bash", [script, "--dir", dir], {
+function runPull(dir, extra = []) {
+  return spawnSync("bash", [script, "--dir", dir, ...extra], {
     encoding: "utf8",
     env: gitEnv()
   })
@@ -141,6 +141,22 @@ test("diverged histories report DIVERGED and keep the local file", () => {
   assert.match(result.stdout, /DIVERGED/)
   const text = fs.readFileSync(path.join(pair.local, "todos.md"), "utf8")
   assert.equal(text, "- local branch\n")
+  cleanup([pair.local, pair.bare, pair.other])
+})
+
+test("ahead with --push pushes and reports PUSHED", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local only\n")
+  sh(pair.local, ["add", "todos.md"])
+  sh(pair.local, ["commit", "-m", "local commit"])
+  const result = runPull(pair.local, ["--push"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /PUSHED/)
+  const remoteLog = spawnSync("git", ["-C", pair.bare, "log", "-1", "--pretty=%s"], {
+    encoding: "utf8",
+    env: gitEnv()
+  })
+  assert.equal(remoteLog.stdout.trim(), "local commit")
   cleanup([pair.local, pair.bare, pair.other])
 })
 

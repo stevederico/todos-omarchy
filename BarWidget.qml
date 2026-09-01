@@ -54,6 +54,10 @@ BarWidget {
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
 
+  GitRemote {
+    id: remoteSync
+  }
+
   Loader {
     id: panelLoader
     active: true

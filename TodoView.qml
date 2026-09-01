@@ -194,7 +194,6 @@ Item {
   function isPullStatus(text) {
     return text === "Updated from git" ||
       text === "Remote has updates (kept local changes)" ||
-      text === "Could not reach git remote" ||
       text === "Git diverged from remote — pull skipped"
   }
 
@@ -209,8 +208,9 @@ Item {
     lastPullDir = dir
     lastPullAt = now
     pullInFlight = true
-    gitPullProc.running = false
-    gitPullProc.command = [gitPullPath(), "--dir", dir]
+    var args = [gitPullPath(), "--dir", dir]
+    if (gitPush) args.push("--push")
+    gitPullProc.command = args
     gitPullProc.running = true
   }
 
@@ -259,7 +259,6 @@ Item {
     ctx = null
     todoFile.reload()
     changelogFile.reload()
-    schedulePull(false)
   }
 
   function selectSource(id) {
@@ -541,7 +540,6 @@ Item {
 
   function reload() {
     todoFile.reload()
-    schedulePull(false)
   }
 
   function openInEditor() {
@@ -748,8 +746,6 @@ Item {
           root.lastError = "Git diverged from remote — pull skipped"
         } else if (out.indexOf("SKIPPED:") >= 0) {
           if (canSet) root.lastStatus = "Remote has updates (kept local changes)"
-        } else if (out.indexOf("FETCH_ERROR:") >= 0) {
-          if (canSet) root.lastStatus = "Could not reach git remote"
         } else if (out.indexOf("FAILED:") >= 0) {
           var err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
           if (err !== "") root.lastError = err

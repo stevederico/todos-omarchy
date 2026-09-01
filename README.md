@@ -17,7 +17,7 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - Reorder — ↑↓ on open items (or context menu)
 - Live-reloads when the active file changes; tabs persist in `~/.config/todo-omarchy/sources.json`
 
-Opening the panel or window fetches that file's git remote in the background and fast-forwards if you are behind. Diverged branches and overlapping uncommitted files are left alone. **Refresh** (or `r`) forces a check.
+The bar keeps each list's git remote in sync on a 30s timer (pull when behind; push when `Git: push` and ahead). Fetch failures stay silent and retry. Diverged branches and overlapping uncommitted files are left alone. **Refresh** (or `r`) forces a check.
 
 Git commit/push is **off by default**. The footer `Git:` control cycles **off → commit → push**:
 

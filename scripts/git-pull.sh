@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fetch the current branch's upstream and fast-forward if we are behind.
-# Never merges diverged histories. Never prompts. Always exits 0.
+# With --push, also push when we are ahead. Never merges diverged histories.
+# Never prompts. Always exits 0.
 set -u
 export GIT_EDITOR=true
 export GIT_TERMINAL_PROMPT=0
@@ -15,12 +16,23 @@ fail() {
 }
 
 DIR=""
+PUSH=0
+ERR=""
+
+cleanup() {
+  [[ -n ${ERR:-} && -f $ERR ]] && rm -f "$ERR"
+}
+trap cleanup EXIT
 
 while (( $# > 0 )); do
   case "$1" in
     --dir)
       DIR="${2-}"
       shift 2
+      ;;
+    --push)
+      PUSH=1
+      shift
       ;;
     -*)
       fail "unknown option"
@@ -44,13 +56,19 @@ if ! git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/nul
   exit 0
 fi
 
+LOCK="$ROOT/.git/todo-omarchy-sync.lock"
+exec 9>"$LOCK" || fail "cannot lock"
+if ! flock -w 25 9; then
+  echo BUSY
+  exit 0
+fi
+
 ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-pull.XXXXXX") || fail "mktemp failed"
 
 if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
   printf 'FETCH_ERROR:'
   tr '\n' ' ' <"$ERR"
   printf '\n'
-  rm -f "$ERR"
   exit 0
 fi
 
@@ -59,19 +77,24 @@ REMOTE=$(git -C "$ROOT" rev-parse '@{u}') || fail "rev-parse upstream"
 
 if [[ $LOCAL == "$REMOTE" ]]; then
   echo UP_TO_DATE
-  rm -f "$ERR"
   exit 0
 fi
 
 if git -C "$ROOT" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
-  echo AHEAD
-  rm -f "$ERR"
+  if (( PUSH == 1 )); then
+    if timeout 20 git -C "$ROOT" push --quiet 2>"$ERR"; then
+      echo PUSHED
+    else
+      echo AHEAD
+    fi
+  else
+    echo AHEAD
+  fi
   exit 0
 fi
 
 if ! git -C "$ROOT" merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
   echo DIVERGED
-  rm -f "$ERR"
   exit 0
 fi
 
@@ -80,5 +103,4 @@ if timeout 8 git -C "$ROOT" merge --ff-only '@{u}' >/dev/null 2>"$ERR"; then
 else
   echo SKIPPED:blocked
 fi
-rm -f "$ERR"
 exit 0

@@ -17,7 +17,6 @@ Item {
     closingFromHost = false
     window.visible = true
     if (view && view.reload) view.reload()
-    if (view && view.pullRemote) view.pullRemote()
     Qt.callLater(function () { if (view && view.focusAdd) view.focusAdd() })
   }
 
@@ -53,7 +52,6 @@ Item {
     onVisibleChanged: {
       if (visible) {
         if (view && view.reload) view.reload()
-        if (view && view.pullRemote) view.pullRemote()
         Qt.callLater(function () { if (view) view.forceActiveFocus() })
       } else if (!root.closingFromHost && root.shell && typeof root.shell.hide === "function") {
         root.shell.hide((root.manifest && root.manifest.id) || "sd.todo-omarchy")

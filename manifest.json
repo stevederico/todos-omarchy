@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "sd.todo-omarchy",
   "name": "Todo Omarchy",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": "sd",
   "license": "MIT",
   "description": "Omarchy bar and window app: open todos from markdown (- item lines)",

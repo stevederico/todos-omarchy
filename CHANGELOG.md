@@ -1,3 +1,9 @@
+0.6.0
+
+  Sync git in background
+  Retry fetch without nagging
+  Push when ahead
+
 0.5.0
 
   Use checkmark icon

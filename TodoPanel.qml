@@ -24,7 +24,6 @@ Panel {
 
   function open() {
     view.reload()
-    if (view.pullRemote) view.pullRemote()
     root.controller.show()
     Qt.callLater(function () {
       if (root.opened) setCenterHoverRevealSuppressed(true)
@@ -56,7 +55,6 @@ Panel {
 
   onOpenedChanged: if (opened) {
     view.reload()
-    if (view.pullRemote) view.pullRemote()
     Qt.callLater(function () { view.focusAdd() })
   }
 
