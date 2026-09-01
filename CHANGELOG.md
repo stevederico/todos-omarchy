@@ -1,3 +1,7 @@
+0.13.0
+
+  Fix panel open crash
+
 0.12.0
 
   Show version in footer

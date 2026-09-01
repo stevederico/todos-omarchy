@@ -860,7 +860,6 @@ Item {
             width: parent.width
             height: Style.spacing.controlHeight
             spacing: Style.space(8)
-            verticalAlignment: Qt.AlignVCenter
 
             Flickable {
               width: Math.max(80, parent.width - countChip.width - addListBtn.width - addBtn.width - Style.space(32))
