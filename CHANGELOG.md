@@ -1,3 +1,8 @@
+0.5.0
+
+  Use checkmark icon
+  Settle drag reorder
+
 0.4.0
 
   On open (and Refresh), fetch the current file's remote in the background

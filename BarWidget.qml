@@ -80,7 +80,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰒠"
+    text: "󰄬"
     tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · right-click for window"
 
     onPressed: function(b) {

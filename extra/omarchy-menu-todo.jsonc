@@ -1,6 +1,6 @@
 {
   "apps.todo-omarchy": {
-    "icon": "󰒠",
+    "icon": "󰄬",
     "label": "Todos",
     "aliases": ["todo", "todos", "checklist"],
     "description": "Open markdown to-dos as a window",
