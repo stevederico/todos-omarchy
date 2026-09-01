@@ -5,7 +5,6 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
-import "Settings.js" as Settings
 
 Item {
   id: root
@@ -20,7 +19,6 @@ Item {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
   readonly property string sourcesPath: configDir + "/sources.json"
-  readonly property string settingsPath: configDir + "/settings.json"
   readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-commit-msg"
 
   property var sources: []
@@ -37,8 +35,6 @@ Item {
   property bool fileMissing: false
   property bool suppressWatch: false
   property int statusToken: 0
-  property bool gitCommit: false
-  property bool gitPush: false
   property bool pullInFlight: false
   property double lastPullAt: 0
   property string lastPullDir: ""
@@ -140,33 +136,6 @@ Item {
     sourcesFile.setText(JSON.stringify(payload, null, 2) + "\n")
   }
 
-  function persistSettings() {
-    mkdirProc.running = true
-    settingsFile.setText(Settings.serializeSettings({
-      gitCommit: gitCommit,
-      gitPush: gitPush
-    }))
-  }
-
-  function applySettings(raw) {
-    var next = Settings.parseSettings(raw)
-    gitCommit = next.gitCommit
-    gitPush = next.gitPush
-  }
-
-  function cycleGit() {
-    if (!gitCommit) {
-      gitCommit = true
-      gitPush = false
-    } else if (!gitPush) {
-      gitPush = true
-    } else {
-      gitCommit = false
-      gitPush = false
-    }
-    persistSettings()
-  }
-
   function pluginFilePath(name) {
     var url = String(Qt.resolvedUrl(name) || "")
     if (url.indexOf("file://") === 0) return url.slice(7)
@@ -185,8 +154,6 @@ Item {
     return gitScriptPath("git-pull.sh")
   }
 
-  readonly property string gitLabel: !gitCommit ? "Git: off" : (gitPush ? "Git: push" : "Git: commit")
-
   function isPullStatus(text) {
     return text === "Updated from git" ||
       text === "Remote has updates (kept local changes)" ||
@@ -204,9 +171,7 @@ Item {
     lastPullDir = dir
     lastPullAt = now
     pullInFlight = true
-    var args = [gitPullPath(), "--dir", dir]
-    if (gitPush) args.push("--push")
-    gitPullProc.command = args
+    gitPullProc.command = [gitPullPath(), "--dir", dir, "--push"]
     gitPullProc.running = true
   }
 
@@ -317,14 +282,9 @@ Item {
     todoFile.setText(body)
     publish()
     if (status) lastStatus = status
-    if (!gitCommit) {
-      isBusy = false
-      return
-    }
     statusToken += 1
     var token = statusToken
-    var args = [gitSyncPath(), "--dir", dirname(filePath), "--message-file", commitMsgPath]
-    if (gitPush) args.push("--push")
+    var args = [gitSyncPath(), "--dir", dirname(filePath), "--message-file", commitMsgPath, "--push"]
     args.push("--")
     args.push(filePath)
     if (extraFiles) {
@@ -751,17 +711,6 @@ Item {
     onExited: function () {
       Qt.callLater(function () { root.pullInFlight = false })
     }
-  }
-
-  FileView {
-    id: settingsFile
-    path: root.settingsPath
-    watchChanges: true
-    atomicWrites: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: root.applySettings(text())
-    onLoadFailed: root.applySettings("")
   }
 
   FileView {
@@ -1258,12 +1207,6 @@ Item {
               fontSize: Style.font.caption
               tooltipText: "Show or hide finished items"
               onClicked: root.showCompleted = !root.showCompleted
-            }
-            Button {
-              text: root.gitLabel
-              fontSize: Style.font.caption
-              tooltipText: "Off writes the file only. Commit stays local. Push sends to the file's upstream."
-              onClicked: root.cycleGit()
             }
           }
 

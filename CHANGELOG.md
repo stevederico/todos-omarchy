@@ -1,3 +1,8 @@
+0.14.0
+
+  Remove git footer button
+  Always commit and push
+
 0.13.0
 
   Fix panel open crash

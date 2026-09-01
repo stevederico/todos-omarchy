@@ -1,17 +1,15 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import "Settings.js" as Settings
 import "GitSync.js" as GitSync
 
 // Lives on the bar (and the window). Syncs on open/close, not on a timer.
-// Fetch failures stay silent.
+// Always fetches and pushes when ahead. Fetch failures stay silent.
 Item {
   id: root
 
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
-  property bool gitPush: false
   property var queue: []
   property bool inFlight: false
 
@@ -39,9 +37,7 @@ Item {
     for (var i = 1; i < queue.length; i++) rest.push(queue[i])
     queue = rest
     inFlight = true
-    var args = [scriptPath(), "--dir", dir]
-    if (gitPush) args.push("--push")
-    proc.command = args
+    proc.command = [scriptPath(), "--dir", dir, "--push"]
     proc.running = true
   }
 
@@ -57,19 +53,6 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-  }
-
-  FileView {
-    id: settingsFile
-    path: root.configDir + "/settings.json"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: {
-      var next = Settings.parseSettings(text())
-      root.gitPush = next.gitPush === true
-    }
-    onLoadFailed: root.gitPush = false
   }
 
   Process {
