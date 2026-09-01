@@ -1,3 +1,7 @@
+0.25.0
+
+  Unborder open window
+
 0.24.0
 
   Hide To-Dos header

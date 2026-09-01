@@ -1182,7 +1182,6 @@ Item {
             Button {
               visible: root.compact
               iconText: "󰖯"
-              bordered: true
               tooltipText: "Open window"
               onClicked: root.openWindowRequested()
             }
