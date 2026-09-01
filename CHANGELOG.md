@@ -1,3 +1,8 @@
+0.33.0
+
+  Rebase on open
+  Hide diverge warning
+
 0.32.0
 
   Move status to footer

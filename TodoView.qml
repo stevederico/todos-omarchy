@@ -155,12 +155,6 @@ Item {
     return gitScriptPath("git-pull.sh")
   }
 
-  function isPullStatus(text) {
-    return text === "Updated from git" ||
-      text === "Remote has updates (kept local changes)" ||
-      text === "Git diverged from remote — pull skipped"
-  }
-
   function schedulePull(force) {
     if (filePath === "") return
     if (pullInFlight) return
@@ -714,19 +708,13 @@ Item {
       onStreamFinished: {
         root.pullInFlight = false
         var out = String(text || "")
-        if (out.indexOf("PULLED") >= 0) {
-          root.lastStatus = "Updated from git"
+        if (out.indexOf("PULLED") >= 0 || out.indexOf("REBASED") >= 0) {
           root.lastError = ""
           todoFile.reload()
           changelogFile.reload()
           return
         }
-        var canSet = root.lastStatus === "" || root.isPullStatus(root.lastStatus)
-        if (out.indexOf("DIVERGED") >= 0) {
-          root.lastError = "Git diverged from remote — pull skipped"
-        } else if (out.indexOf("SKIPPED:") >= 0) {
-          if (canSet) root.lastStatus = "Remote has updates (kept local changes)"
-        } else if (out.indexOf("FAILED:") >= 0) {
+        if (out.indexOf("FAILED:") >= 0) {
           var err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
           if (err !== "") root.lastError = err
         }

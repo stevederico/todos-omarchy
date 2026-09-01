@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fetch the current branch's upstream and fast-forward if we are behind.
-# With --push, also push when we are ahead. Never merges diverged histories.
+# With --push, also push when we are ahead. Diverged histories rebase
+# when the tree is clean; conflicts abort and stay local.
 # Never prompts. Always exits 0.
 set -u
 export GIT_EDITOR=true
@@ -94,7 +95,24 @@ if git -C "$ROOT" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
 fi
 
 if ! git -C "$ROOT" merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
-  echo DIVERGED
+  if ! git -C "$ROOT" diff --quiet || ! git -C "$ROOT" diff --cached --quiet; then
+    echo DIVERGED
+    exit 0
+  fi
+  if timeout 20 git -C "$ROOT" rebase '@{u}' >/dev/null 2>"$ERR"; then
+    if (( PUSH == 1 )); then
+      if timeout 20 git -C "$ROOT" push --quiet 2>"$ERR"; then
+        echo REBASED_PUSHED
+      else
+        echo REBASED
+      fi
+    else
+      echo REBASED
+    fi
+  else
+    git -C "$ROOT" rebase --abort >/dev/null 2>&1 || true
+    echo DIVERGED
+  fi
   exit 0
 fi
 

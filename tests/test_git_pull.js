@@ -144,6 +144,24 @@ test("diverged histories report DIVERGED and keep the local file", () => {
   cleanup([pair.local, pair.bare, pair.other])
 })
 
+test("diverged non-overlapping commits rebase then push", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local only\n")
+  sh(pair.local, ["add", "todos.md"])
+  sh(pair.local, ["commit", "-m", "local commit"])
+  fs.writeFileSync(path.join(pair.other, "notes.md"), "from remote\n")
+  sh(pair.other, ["add", "notes.md"])
+  sh(pair.other, ["commit", "-m", "remote commit"])
+  sh(pair.other, ["push", "origin", "master"])
+  const result = runPull(pair.local, ["--push"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /REBASED_PUSHED|REBASED/)
+  const text = fs.readFileSync(path.join(pair.local, "todos.md"), "utf8")
+  assert.equal(text, "- local only\n")
+  assert.ok(fs.existsSync(path.join(pair.local, "notes.md")))
+  cleanup([pair.local, pair.bare, pair.other])
+})
+
 test("ahead with --push pushes and reports PUSHED", () => {
   const pair = setupRemotePair()
   fs.writeFileSync(path.join(pair.local, "todos.md"), "- local only\n")
