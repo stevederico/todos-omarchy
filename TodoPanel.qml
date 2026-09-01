@@ -15,6 +15,7 @@ Panel {
   readonly property int openCount: view.openCount
 
   function reload() { view.reload() }
+  function refresh() { if (view.refresh) view.refresh(); else view.reload() }
   function openInEditor() { view.openInEditor() }
   function openWindow() {
     root.close()
@@ -23,6 +24,7 @@ Panel {
 
   function open() {
     view.reload()
+    if (view.pullRemote) view.pullRemote()
     root.controller.show()
     Qt.callLater(function () {
       if (root.opened) setCenterHoverRevealSuppressed(true)
@@ -54,6 +56,7 @@ Panel {
 
   onOpenedChanged: if (opened) {
     view.reload()
+    if (view.pullRemote) view.pullRemote()
     Qt.callLater(function () { view.focusAdd() })
   }
 
@@ -77,7 +80,10 @@ Panel {
       onTextKey: function (t) {
         if (t === "n" || t === "N") view.focusAdd()
         else if (t === "/") view.focusFilter()
-        else if (t === "r" || t === "R") view.reload()
+        else if (t === "r" || t === "R") {
+          if (view.refresh) view.refresh()
+          else view.reload()
+        }
         else if (t === "w" || t === "W") root.openWindow()
       }
 

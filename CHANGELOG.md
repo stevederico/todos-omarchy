@@ -1,3 +1,8 @@
+0.4.0
+
+  On open (and Refresh), fetch the current file's remote in the background
+  Fast-forward if behind; skip merge if diverged or blocked by local changes
+
 0.3.0
 
   Git commit/push and changelog updates are opt-in (off by default)

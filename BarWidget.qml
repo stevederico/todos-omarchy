@@ -21,7 +21,8 @@ BarWidget {
   }
 
   function refresh() {
-    if (panelLoader.item && panelLoader.item.reload) panelLoader.item.reload()
+    if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
+    else if (panelLoader.item && panelLoader.item.reload) panelLoader.item.reload()
   }
 
   function togglePanel() {

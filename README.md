@@ -17,7 +17,9 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - Reorder — ↑↓ on open items (or context menu)
 - Live-reloads when the active file changes; tabs persist in `~/.config/todo-omarchy/sources.json`
 
-Git is **off by default**. The footer `Git:` control cycles **off → commit → push**:
+Opening the panel or window fetches that file's git remote in the background and fast-forwards if you are behind. Diverged branches and overlapping uncommitted files are left alone. **Refresh** (or `r`) forces a check.
+
+Git commit/push is **off by default**. The footer `Git:` control cycles **off → commit → push**:
 
 - **off** — write the markdown file only
 - **commit** — `git add` / `git commit` in that file's repo (local only)
@@ -78,7 +80,7 @@ Optional menu row: merge `extra/omarchy-menu-todo.jsonc` into `~/.config/omarchy
 ## Tests
 
 ```sh
-node --test tests/test_document.js tests/test_settings.js tests/test_git_sync.js
+node --test tests/*.js
 ```
 
 ## Sample data

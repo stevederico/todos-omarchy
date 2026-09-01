@@ -40,6 +40,9 @@ Item {
   property bool gitCommit: false
   property bool gitPush: false
   property bool updateChangelog: false
+  property bool pullInFlight: false
+  property double lastPullAt: 0
+  property string lastPullDir: ""
 
   property string query: ""
   property bool showCompleted: false
@@ -157,13 +160,53 @@ Item {
     persistSettings()
   }
 
-  function gitSyncPath() {
-    var url = String(Qt.resolvedUrl("scripts/git-sync.sh") || "")
+  function gitScriptPath(name) {
+    var url = String(Qt.resolvedUrl("scripts/" + name) || "")
     if (url.indexOf("file://") === 0) return url.slice(7)
     return url
   }
 
+  function gitSyncPath() {
+    return gitScriptPath("git-sync.sh")
+  }
+
+  function gitPullPath() {
+    return gitScriptPath("git-pull.sh")
+  }
+
   readonly property string gitLabel: !gitCommit ? "Git: off" : (gitPush ? "Git: push" : "Git: commit")
+
+  function isPullStatus(text) {
+    return text === "Updated from git" ||
+      text === "Remote has updates (kept local changes)" ||
+      text === "Could not reach git remote" ||
+      text === "Git diverged from remote — pull skipped"
+  }
+
+  function schedulePull(force) {
+    if (filePath === "") return
+    if (pullInFlight) return
+    if (isBusy) return
+    var dir = dirname(filePath)
+    if (dir === "") return
+    var now = Date.now()
+    if (!force && lastPullDir === dir && now - lastPullAt < 30000) return
+    lastPullDir = dir
+    lastPullAt = now
+    pullInFlight = true
+    gitPullProc.running = false
+    gitPullProc.command = [gitPullPath(), "--dir", dir]
+    gitPullProc.running = true
+  }
+
+  function pullRemote(force) {
+    schedulePull(force === true)
+  }
+
+  function refresh() {
+    todoFile.reload()
+    schedulePull(true)
+  }
 
   function loadSources(raw) {
     var parsed = null
@@ -201,6 +244,7 @@ Item {
     ctx = null
     todoFile.reload()
     changelogFile.reload()
+    schedulePull(false)
   }
 
   function selectSource(id) {
@@ -365,6 +409,7 @@ Item {
 
   function reload() {
     todoFile.reload()
+    schedulePull(false)
   }
 
   function openInEditor() {
@@ -533,6 +578,38 @@ Item {
     }
   }
 
+  Process {
+    id: gitPullProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.pullInFlight = false
+        var out = String(text || "")
+        if (out.indexOf("PULLED") >= 0) {
+          root.lastStatus = "Updated from git"
+          root.lastError = ""
+          todoFile.reload()
+          changelogFile.reload()
+          return
+        }
+        var canSet = root.lastStatus === "" || root.isPullStatus(root.lastStatus)
+        if (out.indexOf("DIVERGED") >= 0) {
+          root.lastError = "Git diverged from remote — pull skipped"
+        } else if (out.indexOf("SKIPPED:") >= 0) {
+          if (canSet) root.lastStatus = "Remote has updates (kept local changes)"
+        } else if (out.indexOf("FETCH_ERROR:") >= 0) {
+          if (canSet) root.lastStatus = "Could not reach git remote"
+        } else if (out.indexOf("FAILED:") >= 0) {
+          var err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
+          if (err !== "") root.lastError = err
+        }
+      }
+    }
+    onExited: function () {
+      Qt.callLater(function () { root.pullInFlight = false })
+    }
+  }
+
   FileView {
     id: settingsFile
     path: root.settingsPath
@@ -569,7 +646,7 @@ Item {
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onFileChanged: if (!root.suppressWatch) reload()
+    onFileChanged: if (!root.suppressWatch) todoFile.reload()
     onLoaded: if (!root.suppressWatch) root.applyText(text())
     onLoadFailed: root.applyMissing()
   }
@@ -603,7 +680,7 @@ Item {
       root.focusFilter()
       event.accepted = true
     } else if (event.key === Qt.Key_R) {
-      root.reload()
+      root.refresh()
       event.accepted = true
     }
   }
@@ -924,7 +1001,7 @@ Item {
                 }
               }
             }
-            Button { text: "Refresh"; fontSize: Style.font.caption; onClicked: root.reload() }
+            Button { text: "Refresh"; fontSize: Style.font.caption; onClicked: root.refresh() }
             Button { text: "Open File"; fontSize: Style.font.caption; onClicked: root.openInEditor() }
             Button { text: "Reveal"; fontSize: Style.font.caption; onClicked: root.reveal() }
             Button {
