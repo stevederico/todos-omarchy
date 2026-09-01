@@ -2,24 +2,27 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 
-// Caption chip. Text fills the box so glyphs center, unlike Button's font-box.
+// Caption/icon chip. Ink-centered so nerd-font leading does not lift glyphs.
 BorderSurface {
   id: root
 
   property string text: ""
+  property string iconText: ""
   property string tooltipText: ""
   property bool selected: false
   property bool bordered: false
   property color foreground: Color.foreground
   property string fontFamily: Style.font.family
-  property real fontSize: Style.font.caption
+  property real fontSize: iconText !== "" ? Style.font.icon : Style.font.caption
   property real horizontalPadding: Style.spacing.controlPaddingX
 
   signal clicked()
   signal rightClicked()
 
-  implicitWidth: label.implicitWidth + horizontalPadding * 2
-  implicitHeight: Math.max(Style.space(22), fontSize + Style.spacing.sm * 2)
+  implicitWidth: iconText !== ""
+    ? height
+    : (label.implicitWidth + horizontalPadding * 2)
+  implicitHeight: Style.spacing.controlHeight
   radius: Style.cornerRadius
 
   readonly property bool hot: mouse.containsMouse
@@ -32,16 +35,23 @@ BorderSurface {
            : Border.controlSpec("normal", foreground, Color.accent))
     : Border.none()
 
-  Text {
+  CenteredLabel {
     id: label
-    anchors.fill: parent
+    visible: root.iconText === ""
     text: root.text
     color: root.foreground
     font.family: root.fontFamily
     font.pixelSize: root.fontSize
     font.bold: root.selected
-    horizontalAlignment: Text.AlignHCenter
-    verticalAlignment: Text.AlignVCenter
+  }
+
+  CenteredLabel {
+    id: iconLabel
+    visible: root.iconText !== ""
+    text: root.iconText
+    color: root.foreground
+    font.family: root.fontFamily
+    font.pixelSize: root.fontSize
   }
 
   MouseArea {

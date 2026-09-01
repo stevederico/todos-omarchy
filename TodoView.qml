@@ -840,7 +840,7 @@ Item {
           Row {
             id: headerRow
             width: parent.width
-            height: addBtn.height
+            height: Style.spacing.controlHeight
             spacing: Style.space(8)
             verticalAlignment: Qt.AlignVCenter
 
@@ -880,16 +880,13 @@ Item {
               height: parent.height
               radius: height / 2
               color: Style.selectedFillFor(root.foreground, Color.accent)
-              Text {
+              CenteredLabel {
                 id: countLabel
-                anchors.fill: parent
                 text: String(root.openCount)
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
               }
             }
 
@@ -908,11 +905,13 @@ Item {
               }
             }
 
-            PanelActionButton {
+            HeaderButton {
               id: addBtn
+              height: parent.height
               iconText: "󰐕"
               tooltipText: root.showAddField ? "Hide new to-do" : "Add to-do"
               foreground: root.foreground
+              fontFamily: root.fontFamily
               onClicked: {
                 root.showAddField = !root.showAddField
                 root.showAddList = false
@@ -1201,6 +1200,7 @@ Item {
               text: root.showFilter ? "Hide Filter" : (root.trim(root.query).length > 0 ? "Filter (on)" : "Filter")
               fontSize: Style.font.caption
               bordered: root.showFilter || root.trim(root.query).length > 0
+              tooltipText: "Search open items in this list"
               onClicked: {
                 if (root.showFilter) {
                   root.showFilter = false
@@ -1209,20 +1209,37 @@ Item {
                 }
               }
             }
-            Button { text: "Refresh"; fontSize: Style.font.caption; onClicked: root.refresh() }
-            Button { text: "Open File"; fontSize: Style.font.caption; onClicked: root.openInEditor() }
-            Button { text: "Reveal"; fontSize: Style.font.caption; onClicked: root.reveal() }
+            Button {
+              text: "Refresh"
+              fontSize: Style.font.caption
+              tooltipText: "Reload the file and fetch git"
+              onClicked: root.refresh()
+            }
+            Button {
+              text: "Open File"
+              fontSize: Style.font.caption
+              tooltipText: "Open this markdown file in the editor"
+              onClicked: root.openInEditor()
+            }
+            Button {
+              text: "Reveal"
+              fontSize: Style.font.caption
+              tooltipText: "Open the folder that contains this file"
+              onClicked: root.reveal()
+            }
             Button {
               visible: root.compact
               text: "Open Window"
               fontSize: Style.font.caption
               bordered: true
+              tooltipText: "Pop the list out into a tiled window"
               onClicked: root.openWindowRequested()
             }
             Button {
               visible: root.completedCount > 0
               text: root.showCompleted ? "Hide Completed" : ("Show Completed (" + root.completedCount + ")")
               fontSize: Style.font.caption
+              tooltipText: "Show or hide finished items"
               onClicked: root.showCompleted = !root.showCompleted
             }
             Button {

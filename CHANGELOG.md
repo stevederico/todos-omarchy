@@ -1,3 +1,8 @@
+0.10.0
+
+  Center header ink
+  Add footer tooltips
+
 0.9.0
 
   Fix header text alignment
