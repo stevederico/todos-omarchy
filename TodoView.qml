@@ -942,18 +942,6 @@ Item {
             }
             Keys.onEscapePressed: root.renameID = ""
           }
-
-          Text {
-            visible: root.lastError !== "" || root.lastStatus !== ""
-            width: parent.width
-            text: root.lastError !== "" ? root.lastError : root.lastStatus
-            color: root.lastError !== "" ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.NoWrap
-            elide: Text.ElideRight
-            maximumLineCount: 1
-          }
         }
 
         Flickable {
@@ -1250,18 +1238,37 @@ Item {
 
             Item {
               id: versionSlot
-              visible: root.appVersion !== ""
+              visible: root.appVersion !== "" || root.lastError !== "" || root.lastStatus !== ""
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              width: visible ? versionLabel.implicitWidth : 0
+              width: visible ? statusRow.implicitWidth : 0
               height: parent.height
 
-              CenteredLabel {
-                id: versionLabel
-                text: root.appVersion
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
+              Row {
+                id: statusRow
+                anchors.right: parent.right
+                height: parent.height
+                spacing: Style.space(8)
+
+                Text {
+                  visible: root.lastError !== "" || root.lastStatus !== ""
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: visible ? Math.min(implicitWidth, Style.space(180)) : 0
+                  text: root.lastError !== "" ? root.lastError : root.lastStatus
+                  color: root.lastError !== "" ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  wrapMode: Text.NoWrap
+                  elide: Text.ElideRight
+                }
+
+                CenteredLabel {
+                  visible: root.appVersion !== ""
+                  text: root.appVersion
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
               }
             }
           }

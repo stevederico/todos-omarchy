@@ -1,3 +1,7 @@
+0.32.0
+
+  Move status to footer
+
 0.31.0
 
   Rebase before push
