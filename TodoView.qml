@@ -32,6 +32,7 @@ Item {
   property string filePath: ""
   property string lastError: ""
   property string lastStatus: ""
+  property string appVersion: ""
   property bool isBusy: false
   property bool fileMissing: false
   property bool suppressWatch: false
@@ -166,10 +167,14 @@ Item {
     persistSettings()
   }
 
-  function gitScriptPath(name) {
-    var url = String(Qt.resolvedUrl("scripts/" + name) || "")
+  function pluginFilePath(name) {
+    var url = String(Qt.resolvedUrl(name) || "")
     if (url.indexOf("file://") === 0) return url.slice(7)
     return url
+  }
+
+  function gitScriptPath(name) {
+    return pluginFilePath("scripts/" + name)
   }
 
   function gitSyncPath() {
@@ -799,6 +804,22 @@ Item {
     printErrors: false
   }
 
+  FileView {
+    id: manifestFile
+    path: root.pluginFilePath("manifest.json")
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var parsed = JSON.parse(text())
+        root.appVersion = parsed && parsed.version ? String(parsed.version) : ""
+      } catch (e) {
+        root.appVersion = ""
+      }
+    }
+  }
+
   Component.onCompleted: mkdirProc.running = true
 
   Keys.onPressed: function (event) {
@@ -1245,6 +1266,14 @@ Item {
               tooltipText: "Off writes the file only. Commit stays local. Push sends to the file's upstream."
               onClicked: root.cycleGit()
             }
+          }
+
+          Text {
+            visible: root.appVersion !== ""
+            text: root.appVersion
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
           }
 
         }

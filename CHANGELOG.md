@@ -1,3 +1,7 @@
+0.12.0
+
+  Show version in footer
+
 0.11.0
 
   Always write changelog file
