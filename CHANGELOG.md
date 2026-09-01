@@ -1,3 +1,7 @@
+0.11.0
+
+  Always write changelog file
+
 0.10.0
 
   Center header ink

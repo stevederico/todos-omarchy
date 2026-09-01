@@ -34,7 +34,6 @@ Item {
   property string lastStatus: ""
   property bool isBusy: false
   property bool fileMissing: false
-  property bool changelogPresent: false
   property bool suppressWatch: false
   property int statusToken: 0
   property bool gitCommit: false
@@ -370,7 +369,7 @@ Item {
     mutate(function () {
       var result = Doc.toggleComplete(lines, item.text, item.section, item.lineIndex, item.isCompleted)
       var extra = []
-      if (result.completed && changelogPresent) {
+      if (result.completed) {
         var existing = changelogFile.text()
         changelogFile.setText(Doc.insertChangelogEntry(existing, Doc.todayHeader(), "  " + item.text))
         extra.push(changelogPath)
@@ -798,8 +797,6 @@ Item {
     watchChanges: false
     atomicWrites: true
     printErrors: false
-    onLoaded: root.changelogPresent = true
-    onLoadFailed: root.changelogPresent = false
   }
 
   Component.onCompleted: mkdirProc.running = true
