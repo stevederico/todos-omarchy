@@ -1150,58 +1150,70 @@ Item {
             }
           }
 
-          Row {
+          Item {
             width: parent.width
             height: Style.spacing.controlHeight
-            spacing: Style.space(8)
-            clip: true
 
-            Button {
-              iconText: "󰍉"
-              selected: root.showFilter || root.trim(root.query).length > 0
-              bordered: root.showFilter || root.trim(root.query).length > 0
-              tooltipText: root.showFilter ? "Hide filter" : (root.trim(root.query).length > 0 ? "Filter on" : "Filter")
-              onClicked: {
-                if (root.showFilter) {
-                  root.showFilter = false
-                } else {
-                  root.focusFilter()
+            Row {
+              anchors.left: parent.left
+              anchors.right: versionSlot.left
+              anchors.rightMargin: versionSlot.visible ? Style.space(8) : 0
+              anchors.verticalCenter: parent.verticalCenter
+              height: parent.height
+              spacing: Style.space(8)
+              clip: true
+
+              Button {
+                iconText: "󰍉"
+                selected: root.showFilter || root.trim(root.query).length > 0
+                bordered: root.showFilter || root.trim(root.query).length > 0
+                tooltipText: root.showFilter ? "Hide filter" : (root.trim(root.query).length > 0 ? "Filter on" : "Filter")
+                onClicked: {
+                  if (root.showFilter) {
+                    root.showFilter = false
+                  } else {
+                    root.focusFilter()
+                  }
                 }
               }
+              Button {
+                iconText: "󰑐"
+                tooltipText: "Refresh"
+                onClicked: root.refresh()
+              }
+              Button {
+                iconText: "󰈙"
+                tooltipText: "Open file"
+                onClicked: root.openInEditor()
+              }
+              Button {
+                visible: root.compact
+                iconText: "󰖯"
+                tooltipText: "Open window"
+                onClicked: root.openWindowRequested()
+              }
+              Button {
+                visible: root.completedCount > 0
+                iconText: root.showCompleted ? "󰈉" : "󰈈"
+                selected: root.showCompleted
+                bordered: root.showCompleted
+                tooltipText: root.showCompleted
+                  ? ("Hide completed (" + root.completedCount + ")")
+                  : ("Show completed (" + root.completedCount + ")")
+                onClicked: root.showCompleted = !root.showCompleted
+              }
             }
-            Button {
-              iconText: "󰑐"
-              tooltipText: "Refresh"
-              onClicked: root.refresh()
-            }
-            Button {
-              iconText: "󰈙"
-              tooltipText: "Open file"
-              onClicked: root.openInEditor()
-            }
-            Button {
-              visible: root.compact
-              iconText: "󰖯"
-              tooltipText: "Open window"
-              onClicked: root.openWindowRequested()
-            }
-            Button {
-              visible: root.completedCount > 0
-              iconText: root.showCompleted ? "󰈉" : "󰈈"
-              selected: root.showCompleted
-              bordered: root.showCompleted
-              tooltipText: root.showCompleted
-                ? ("Hide completed (" + root.completedCount + ")")
-                : ("Show completed (" + root.completedCount + ")")
-              onClicked: root.showCompleted = !root.showCompleted
-            }
+
             Item {
+              id: versionSlot
               visible: root.appVersion !== ""
-              width: versionLabel.implicitWidth
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              width: visible ? versionLabel.implicitWidth : 0
               height: parent.height
-              Text {
+
+              CenteredLabel {
                 id: versionLabel
-                anchors.verticalCenter: parent.verticalCenter
                 text: root.appVersion
                 color: root.dim
                 font.family: root.fontFamily

@@ -1,3 +1,7 @@
+0.26.0
+
+  Right-align version label
+
 0.25.0
 
   Unborder open window
