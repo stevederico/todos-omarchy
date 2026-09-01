@@ -984,8 +984,6 @@ Item {
           contentWidth: width
           contentHeight: listColumn.implicitHeight
           clip: true
-          opacity: root.isBusy ? 0.55 : 1
-          Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
           boundsBehavior: Flickable.StopAtBounds
           flickableDirection: Flickable.VerticalFlick
           interactive: !root.rowDragging

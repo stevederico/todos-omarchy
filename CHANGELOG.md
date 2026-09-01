@@ -1,3 +1,7 @@
+0.35.0
+
+  Stop dim on save
+
 0.34.0
 
   Lock edit sync
