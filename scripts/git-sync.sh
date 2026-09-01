@@ -102,15 +102,47 @@ cleanup() {
 trap cleanup EXIT
 ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/todo-omarchy-push.XXXXXX") || {
   echo COMMITTED
-  echo "PUSH_ERROR:mktemp failed"
   exit 0
 }
-if timeout 20 git -C "$ROOT" push >/dev/null 2>"$ERR"; then
+
+push_quiet() {
+  timeout 20 git -C "$ROOT" push --quiet >/dev/null 2>"$ERR"
+}
+
+if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
+  if push_quiet; then
+    echo PUSHED
+  else
+    echo COMMITTED
+  fi
+  exit 0
+fi
+
+LOCAL=$(git -C "$ROOT" rev-parse HEAD) || { echo COMMITTED; exit 0; }
+REMOTE=$(git -C "$ROOT" rev-parse '@{u}') || { echo COMMITTED; exit 0; }
+
+if [[ $LOCAL == "$REMOTE" ]]; then
   echo PUSHED
+  exit 0
+fi
+
+if git -C "$ROOT" merge-base --is-ancestor "$REMOTE" "$LOCAL"; then
+  if push_quiet; then
+    echo PUSHED
+  else
+    echo COMMITTED
+  fi
+  exit 0
+fi
+
+if timeout 20 git -C "$ROOT" rebase '@{u}' >/dev/null 2>"$ERR"; then
+  if push_quiet; then
+    echo REBASED_PUSHED
+  else
+    echo COMMITTED
+  fi
 else
-  echo COMMITTED
-  printf 'PUSH_ERROR:'
-  tr '\n' ' ' <"$ERR"
-  printf '\n'
+  git -C "$ROOT" rebase --abort >/dev/null 2>&1 || true
+  echo DIVERGED
 fi
 exit 0

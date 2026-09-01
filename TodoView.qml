@@ -676,14 +676,17 @@ Item {
         if (out.indexOf("FAILED:") >= 0) {
           outcome = "failed"
           err = out.replace(/^[\s\S]*FAILED:/, "").split("\n")[0]
-        } else if (out.indexOf("PUSHED") >= 0) {
+        } else if (out.indexOf("REBASED_PUSHED") >= 0 || out.indexOf("PUSHED") >= 0) {
           outcome = "pushed"
+          if (out.indexOf("REBASED_PUSHED") >= 0) {
+            todoFile.reload()
+            changelogFile.reload()
+          }
+        } else if (out.indexOf("DIVERGED") >= 0) {
+          outcome = "committed"
         } else if (out.indexOf("COMMITTED") >= 0) {
           outcome = "committed"
         }
-        var pushErr = ""
-        var match = out.match(/PUSH_ERROR:(.*)/)
-        if (match) pushErr = match[1]
         var allowed = {}
         allowed[gitProc.status] = true
         allowed[gitProc.status + " · not committed"] = true
@@ -694,7 +697,8 @@ Item {
           else if (outcome === "pushed") root.lastStatus = gitProc.status + " · pushed"
           else root.lastStatus = gitProc.status + " · committed"
         }
-        if (err !== "" || pushErr !== "") root.lastError = err || pushErr
+        if (err !== "") root.lastError = err
+        else root.lastError = ""
         root.isBusy = false
       }
     }
@@ -946,7 +950,9 @@ Item {
             color: root.lastError !== "" ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
-            wrapMode: Text.Wrap
+            wrapMode: Text.NoWrap
+            elide: Text.ElideRight
+            maximumLineCount: 1
           }
         }
 

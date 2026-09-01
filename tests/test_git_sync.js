@@ -90,6 +90,68 @@ test("skips a missing extra file and still commits the todo", () => {
   fs.rmSync(root, { recursive: true, force: true })
 })
 
+function gitEnv() {
+  return {
+    ...process.env,
+    GIT_AUTHOR_NAME: "Test",
+    GIT_AUTHOR_EMAIL: "test@example.test",
+    GIT_COMMITTER_NAME: "Test",
+    GIT_COMMITTER_EMAIL: "test@example.test",
+    GIT_TERMINAL_PROMPT: "0"
+  }
+}
+
+function setupRemotePair() {
+  const local = setupRepo()
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "todo-omarchy-sync-bare-"))
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "todo-omarchy-sync-other-"))
+  spawnSync("git", ["init", "--bare", "-b", "master", bare], { encoding: "utf8", env: gitEnv() })
+  sh(local, ["remote", "add", "origin", bare])
+  sh(local, ["push", "-u", "origin", "master"])
+  const clone = spawnSync("git", ["clone", bare, other], { encoding: "utf8", env: gitEnv() })
+  assert.equal(clone.status, 0, clone.stderr)
+  sh(other, ["config", "user.name", "Test"])
+  sh(other, ["config", "user.email", "test@example.test"])
+  return { local, bare, other }
+}
+
+test("behind remote plus local edit rebases then pushes", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.other, "notes.md"), "from remote\n")
+  sh(pair.other, ["add", "notes.md"])
+  sh(pair.other, ["commit", "-m", "remote"])
+  sh(pair.other, ["push"])
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local drag\n")
+  const result = runSync(pair.local, "Reorder local", ["--push"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /REBASED_PUSHED|PUSHED/)
+  assert.doesNotMatch(result.stdout, /PUSH_ERROR|non-fast-forward|rejected/)
+  const remoteLog = spawnSync("git", ["-C", pair.bare, "log", "--pretty=%s"], { encoding: "utf8" })
+  assert.match(remoteLog.stdout, /Reorder local/)
+  assert.match(remoteLog.stdout, /remote/)
+  fs.rmSync(pair.local, { recursive: true, force: true })
+  fs.rmSync(pair.bare, { recursive: true, force: true })
+  fs.rmSync(pair.other, { recursive: true, force: true })
+})
+
+test("conflicting remote edit stays local and prints no git stderr", () => {
+  const pair = setupRemotePair()
+  fs.writeFileSync(path.join(pair.other, "todos.md"), "- remote line\n")
+  sh(pair.other, ["add", "todos.md"])
+  sh(pair.other, ["commit", "-m", "remote"])
+  sh(pair.other, ["push"])
+  fs.writeFileSync(path.join(pair.local, "todos.md"), "- local line\n")
+  const result = runSync(pair.local, "Reorder local", ["--push"])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /DIVERGED|REBASED_PUSHED|PUSHED/)
+  assert.doesNotMatch(result.stdout, /PUSH_ERROR|hint:|non-fast-forward/)
+  const localText = fs.readFileSync(path.join(pair.local, "todos.md"), "utf8")
+  assert.match(localText, /local line/)
+  fs.rmSync(pair.local, { recursive: true, force: true })
+  fs.rmSync(pair.bare, { recursive: true, force: true })
+  fs.rmSync(pair.other, { recursive: true, force: true })
+})
+
 test("refuses files outside the git root", () => {
   const root = setupRepo()
   const outside = path.join(os.tmpdir(), "todo-omarchy-outside.md")

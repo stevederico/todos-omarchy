@@ -1,3 +1,8 @@
+0.31.0
+
+  Rebase before push
+  Hide raw git errors
+
 0.30.0
 
   Click row to edit
