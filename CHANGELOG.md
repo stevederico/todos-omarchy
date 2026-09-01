@@ -1,3 +1,7 @@
+0.24.0
+
+  Hide To-Dos header
+
 0.23.0
 
   Stripe list rows

@@ -959,6 +959,7 @@ Item {
                 spacing: 0
 
                 PanelSectionHeader {
+                  visible: sectionCol.modelData.title !== "To-Dos"
                   text: sectionCol.modelData.title
                   foreground: root.foreground
                   leftPadding: Style.space(12)
