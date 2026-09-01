@@ -1,3 +1,7 @@
+0.19.0
+
+  Show count on active tab
+
 0.18.0
 
   Remove reveal footer button

@@ -813,7 +813,7 @@ Item {
             spacing: Style.space(8)
 
             Flickable {
-              width: Math.max(80, parent.width - countChip.width - addBtn.width - Style.space(24))
+              width: Math.max(80, parent.width - addBtn.width - Style.space(16))
               height: parent.height
               contentWidth: tabRow.implicitWidth
               clip: true
@@ -830,7 +830,9 @@ Item {
                   HeaderButton {
                     required property var modelData
                     height: tabRow.height
-                    text: modelData.title
+                    text: modelData.id === root.selectedID
+                      ? (modelData.title + " " + root.openCount)
+                      : modelData.title
                     selected: modelData.id === root.selectedID
                     foreground: root.foreground
                     fontFamily: root.fontFamily
@@ -853,22 +855,6 @@ Item {
                     if (root.showAddList) listPathField.forceActiveFocus()
                   }
                 }
-              }
-            }
-
-            Rectangle {
-              id: countChip
-              width: countLabel.implicitWidth + Style.space(12)
-              height: parent.height
-              radius: height / 2
-              color: Style.selectedFillFor(root.foreground, Color.accent)
-              CenteredLabel {
-                id: countLabel
-                text: String(root.openCount)
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
               }
             }
 
