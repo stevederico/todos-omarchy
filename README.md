@@ -7,7 +7,7 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - Bar icon with the open-item count; click for the compact panel, right-click for a normal window
 - App launcher / Omarchy menu **Todos** opens the same UI as a tiled Hyprland window
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
-- **Add List** takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`)
+- **+** tab after the last list takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`)
 - Right-click tab → Rename / Reveal / Remove
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)

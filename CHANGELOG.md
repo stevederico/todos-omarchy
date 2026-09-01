@@ -1,3 +1,7 @@
+0.16.0
+
+  Move new list into tab row
+
 0.15.0
 
   Unload window when hidden

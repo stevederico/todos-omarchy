@@ -813,7 +813,7 @@ Item {
             spacing: Style.space(8)
 
             Flickable {
-              width: Math.max(80, parent.width - countChip.width - addListBtn.width - addBtn.width - Style.space(32))
+              width: Math.max(80, parent.width - countChip.width - addBtn.width - Style.space(24))
               height: parent.height
               contentWidth: tabRow.implicitWidth
               clip: true
@@ -839,6 +839,20 @@ Item {
                     onRightClicked: root.ctx = { kind: "tab", source: modelData }
                   }
                 }
+
+                HeaderButton {
+                  height: tabRow.height
+                  text: "+"
+                  selected: root.showAddList
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  tooltipText: "Add another markdown todo file"
+                  onClicked: {
+                    root.showAddList = !root.showAddList
+                    root.showAddField = false
+                    if (root.showAddList) listPathField.forceActiveFocus()
+                  }
+                }
               }
             }
 
@@ -855,21 +869,6 @@ Item {
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
-              }
-            }
-
-            HeaderButton {
-              id: addListBtn
-              height: parent.height
-              text: "Add List"
-              bordered: true
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              tooltipText: "Add another markdown todo file"
-              onClicked: {
-                root.showAddList = !root.showAddList
-                root.showAddField = false
-                if (root.showAddList) listPathField.forceActiveFocus()
               }
             }
 
