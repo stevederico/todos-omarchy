@@ -1,3 +1,7 @@
+0.28.0
+
+  Drop extra footer inset
+
 0.27.0
 
   Unclip footer buttons

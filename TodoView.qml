@@ -1134,9 +1134,6 @@ Item {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.bottom: parent.bottom
-          anchors.leftMargin: Style.space(8)
-          anchors.rightMargin: Style.space(8)
-          anchors.bottomMargin: Style.space(8)
           spacing: Style.space(8)
 
           TextField {
