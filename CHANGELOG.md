@@ -1,3 +1,7 @@
+0.20.0
+
+  Keep footer on one line
+
 0.19.0
 
   Show count on active tab

@@ -1146,9 +1146,12 @@ Item {
             }
           }
 
-          Flow {
+          Row {
             width: parent.width
+            height: Style.spacing.controlHeight
             spacing: Style.space(8)
+            clip: true
+
             Button {
               text: root.showFilter ? "Hide Filter" : (root.trim(root.query).length > 0 ? "Filter (on)" : "Filter")
               fontSize: Style.font.caption
@@ -1189,14 +1192,19 @@ Item {
               tooltipText: "Show or hide finished items"
               onClicked: root.showCompleted = !root.showCompleted
             }
-          }
-
-          Text {
-            visible: root.appVersion !== ""
-            text: root.appVersion
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
+            Item {
+              visible: root.appVersion !== ""
+              width: versionLabel.implicitWidth
+              height: parent.height
+              Text {
+                id: versionLabel
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.appVersion
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+            }
           }
 
         }
