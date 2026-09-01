@@ -500,11 +500,11 @@ Item {
   }
 
   function openInEditor() {
-    if (filePath !== "") Quickshell.execDetached(["xdg-open", filePath])
+    if (filePath !== "") Util.execArgv(["omarchy-launch-editor", filePath])
   }
 
   function reveal() {
-    if (filePath !== "") Quickshell.execDetached(["xdg-open", dirname(filePath)])
+    if (filePath !== "") Util.execArgv(["xdg-open", dirname(filePath)])
   }
 
   function copyText(text) {
@@ -571,7 +571,7 @@ Item {
         renameID = src.id
         renameField.forceActiveFocus()
       } else if (action === "Reveal") {
-        Quickshell.execDetached(["xdg-open", dirname(src.path)])
+        Util.execArgv(["xdg-open", dirname(src.path)])
       } else if (action === "Remove Tab") {
         removeSource(src.id)
       }

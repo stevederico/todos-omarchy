@@ -1,3 +1,7 @@
+0.17.0
+
+  Open file in editor terminal
+
 0.16.0
 
   Move new list into tab row
