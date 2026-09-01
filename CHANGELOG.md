@@ -1,3 +1,7 @@
+0.9.0
+
+  Fix header text alignment
+
 0.8.0
 
   Always write changelog

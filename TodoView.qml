@@ -838,12 +838,15 @@ Item {
           spacing: Style.space(8)
 
           Row {
+            id: headerRow
             width: parent.width
+            height: addBtn.height
             spacing: Style.space(8)
+            verticalAlignment: Qt.AlignVCenter
 
             Flickable {
               width: Math.max(80, parent.width - countChip.width - addListBtn.width - addBtn.width - Style.space(32))
-              height: addBtn.height
+              height: parent.height
               contentWidth: tabRow.implicitWidth
               clip: true
               flickableDirection: Flickable.HorizontalFlick
@@ -851,15 +854,18 @@ Item {
 
               Row {
                 id: tabRow
+                height: headerRow.height
                 spacing: Style.space(4)
 
                 Repeater {
                   model: root.sources
-                  Button {
+                  HeaderButton {
                     required property var modelData
+                    height: tabRow.height
                     text: modelData.title
                     selected: modelData.id === root.selectedID
-                    fontSize: Style.font.caption
+                    foreground: root.foreground
+                    fontFamily: root.fontFamily
                     tooltipText: modelData.path
                     onClicked: root.selectSource(modelData.id)
                     onRightClicked: root.ctx = { kind: "tab", source: modelData }
@@ -871,25 +877,29 @@ Item {
             Rectangle {
               id: countChip
               width: countLabel.implicitWidth + Style.space(12)
-              height: addBtn.height
+              height: parent.height
               radius: height / 2
               color: Style.selectedFillFor(root.foreground, Color.accent)
               Text {
                 id: countLabel
-                anchors.centerIn: parent
+                anchors.fill: parent
                 text: String(root.openCount)
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
               }
             }
 
-            Button {
+            HeaderButton {
               id: addListBtn
+              height: parent.height
               text: "Add List"
-              fontSize: Style.font.caption
               bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
               tooltipText: "Add another markdown todo file"
               onClicked: {
                 root.showAddList = !root.showAddList
