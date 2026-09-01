@@ -53,9 +53,12 @@ Panel {
       root.bar.centerHoverRevealSuppressed = value
   }
 
-  onOpenedChanged: if (opened) {
-    view.reload()
-    Qt.callLater(function () { view.focusAdd() })
+  onOpenedChanged: {
+    if (hostWidget && hostWidget.syncRemote) hostWidget.syncRemote()
+    if (opened) {
+      view.reload()
+      Qt.callLater(function () { view.focusAdd() })
+    }
   }
 
   KeyboardPanel {

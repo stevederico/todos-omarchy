@@ -1,3 +1,8 @@
+0.7.0
+
+  Sync on open close
+  Remove 30s poll
+
 0.6.0
 
   Sync git in background

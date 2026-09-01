@@ -4,14 +4,13 @@ import Quickshell.Io
 import "Settings.js" as Settings
 import "GitSync.js" as GitSync
 
-// Lives on the bar. Pulls every list repo on a timer. Pushes when Git: push.
-// Fetch failures stay silent and retry next tick.
+// Lives on the bar (and the window). Syncs on open/close, not on a timer.
+// Fetch failures stay silent.
 Item {
   id: root
 
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
-  property int intervalMs: 30000
   property bool gitPush: false
   property var queue: []
   property bool inFlight: false
@@ -52,21 +51,12 @@ Item {
     kick()
   }
 
-  Timer {
-    interval: root.intervalMs
-    running: true
-    repeat: true
-    triggeredOnStart: false
-    onTriggered: root.enqueueAll()
-  }
-
   FileView {
     id: sourcesFile
     path: root.configDir + "/sources.json"
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: root.enqueueAll()
   }
 
   FileView {

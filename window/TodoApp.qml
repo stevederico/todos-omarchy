@@ -40,6 +40,15 @@ Item {
     view.closeRequested.connect(root.requestClose)
   }
 
+  function syncRemote() {
+    if (remoteLoader.item && remoteLoader.item.enqueueAll) remoteLoader.item.enqueueAll()
+  }
+
+  Loader {
+    id: remoteLoader
+    source: Qt.resolvedUrl("../GitRemote.qml")
+  }
+
   FloatingWindow {
     id: window
     title: "Todos"
@@ -50,6 +59,7 @@ Item {
     minimumSize: Qt.size(Style.space(400), Style.space(480))
 
     onVisibleChanged: {
+      root.syncRemote()
       if (visible) {
         if (view && view.reload) view.reload()
         Qt.callLater(function () { if (view) view.forceActiveFocus() })

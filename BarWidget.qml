@@ -25,6 +25,10 @@ BarWidget {
     else if (panelLoader.item && panelLoader.item.reload) panelLoader.item.reload()
   }
 
+  function syncRemote() {
+    remoteSync.enqueueAll()
+  }
+
   function togglePanel() {
     if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
   }
