@@ -1,8 +1,7 @@
 function defaultSettings() {
   return {
     gitCommit: false,
-    gitPush: false,
-    updateChangelog: false
+    gitPush: false
   }
 }
 
@@ -19,8 +18,7 @@ function parseSettings(raw) {
   var defaults = defaultSettings()
   return {
     gitCommit: asBool(parsed.gitCommit, defaults.gitCommit),
-    gitPush: asBool(parsed.gitPush, defaults.gitPush),
-    updateChangelog: asBool(parsed.updateChangelog, defaults.updateChangelog)
+    gitPush: asBool(parsed.gitPush, defaults.gitPush)
   }
 }
 
@@ -28,8 +26,7 @@ function serializeSettings(settings) {
   var next = parseSettings(JSON.stringify(settings || {}))
   return JSON.stringify({
     gitCommit: next.gitCommit === true,
-    gitPush: next.gitPush === true,
-    updateChangelog: next.updateChangelog === true
+    gitPush: next.gitPush === true
   }, null, 2) + "\n"
 }
 

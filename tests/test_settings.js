@@ -4,11 +4,10 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Settings = require("../Settings.js")
 
-test("defaults are write-only: no commit, push, or changelog", () => {
+test("defaults are write-only: no commit or push", () => {
   const d = Settings.defaultSettings()
   assert.equal(d.gitCommit, false)
   assert.equal(d.gitPush, false)
-  assert.equal(d.updateChangelog, false)
   assert.deepEqual(Settings.parseSettings(""), d)
   assert.deepEqual(Settings.parseSettings("not-json"), d)
   assert.deepEqual(Settings.parseSettings("[]"), d)
@@ -17,25 +16,21 @@ test("defaults are write-only: no commit, push, or changelog", () => {
 test("parseSettings only treats JSON true as enabled", () => {
   const on = Settings.parseSettings(JSON.stringify({
     gitCommit: true,
-    gitPush: true,
-    updateChangelog: true
+    gitPush: true
   }))
   assert.equal(on.gitCommit, true)
   assert.equal(on.gitPush, true)
-  assert.equal(on.updateChangelog, true)
   const strings = Settings.parseSettings(JSON.stringify({
     gitCommit: "true",
-    gitPush: "yes",
-    updateChangelog: 1
+    gitPush: "yes"
   }))
   assert.equal(strings.gitCommit, false)
   assert.equal(strings.gitPush, false)
-  assert.equal(strings.updateChangelog, false)
 })
 
-test("serializeSettings round-trips booleans only", () => {
+test("serializeSettings drops leftover changelog flag", () => {
   const raw = Settings.serializeSettings({ gitCommit: true, gitPush: false, updateChangelog: true })
   const parsed = JSON.parse(raw)
-  assert.deepEqual(parsed, { gitCommit: true, gitPush: false, updateChangelog: true })
+  assert.deepEqual(parsed, { gitCommit: true, gitPush: false })
   assert.ok(raw.endsWith("\n"))
 })

@@ -39,7 +39,6 @@ Item {
   property int statusToken: 0
   property bool gitCommit: false
   property bool gitPush: false
-  property bool updateChangelog: false
   property bool pullInFlight: false
   property double lastPullAt: 0
   property string lastPullDir: ""
@@ -145,8 +144,7 @@ Item {
     mkdirProc.running = true
     settingsFile.setText(Settings.serializeSettings({
       gitCommit: gitCommit,
-      gitPush: gitPush,
-      updateChangelog: updateChangelog
+      gitPush: gitPush
     }))
   }
 
@@ -154,7 +152,6 @@ Item {
     var next = Settings.parseSettings(raw)
     gitCommit = next.gitCommit
     gitPush = next.gitPush
-    updateChangelog = next.updateChangelog
   }
 
   function cycleGit() {
@@ -167,11 +164,6 @@ Item {
       gitCommit = false
       gitPush = false
     }
-    persistSettings()
-  }
-
-  function toggleChangelog() {
-    updateChangelog = !updateChangelog
     persistSettings()
   }
 
@@ -378,7 +370,7 @@ Item {
     mutate(function () {
       var result = Doc.toggleComplete(lines, item.text, item.section, item.lineIndex, item.isCompleted)
       var extra = []
-      if (result.completed && changelogPresent && updateChangelog) {
+      if (result.completed && changelogPresent) {
         var existing = changelogFile.text()
         changelogFile.setText(Doc.insertChangelogEntry(existing, Doc.todayHeader(), "  " + item.text))
         extra.push(changelogPath)
@@ -1228,12 +1220,6 @@ Item {
               fontSize: Style.font.caption
               tooltipText: "Off writes the file only. Commit stays local. Push sends to the file's upstream."
               onClicked: root.cycleGit()
-            }
-            Button {
-              text: root.updateChangelog ? "Changelog: on" : "Changelog: off"
-              fontSize: Style.font.caption
-              tooltipText: "When on, completing an item also appends to a sibling CHANGELOG.md"
-              onClicked: root.toggleChangelog()
             }
           }
 

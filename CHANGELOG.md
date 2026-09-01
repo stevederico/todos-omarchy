@@ -1,3 +1,8 @@
+0.8.0
+
+  Always write changelog
+  Remove changelog toggle
+
 0.7.0
 
   Sync on open close

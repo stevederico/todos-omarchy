@@ -25,7 +25,7 @@ Git commit/push is **off by default**. The footer `Git:` control cycles **off �
 - **commit** — `git add` / `git commit` in that file's repo (local only)
 - **push** — also `git push` when the branch has an upstream
 
-`Changelog: on` appends completed items to a sibling `CHANGELOG.md`. That is also **off by default**, so a random project's changelog is not rewritten.
+Completing an item appends it to a sibling `CHANGELOG.md` when that file already exists.
 
 Settings persist in `~/.config/todo-omarchy/settings.json`.
 
