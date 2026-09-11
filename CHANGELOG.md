@@ -1,3 +1,7 @@
+0.38.0
+
+  Toggle window from bar
+
 0.37.0
 
   Fix bar icon click

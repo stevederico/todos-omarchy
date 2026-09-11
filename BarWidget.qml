@@ -4,7 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Checklist count for the bar. Click opens the window app.
+// Checklist count for the bar. Click toggles the window app.
 BarWidget {
   id: root
   moduleName: "sd.todo-omarchy"
@@ -31,14 +31,33 @@ BarWidget {
     remoteSync.enqueueAll()
   }
 
+  property bool clickLock: false
+
+  Timer {
+    id: clickLockTimer
+    interval: 120
+    onTriggered: root.clickLock = false
+  }
+
   function openWindow() {
     Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
   }
 
+  function closeWindow() {
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.todo-omarchy"])
+  }
+
+  function toggleWindow() {
+    if (root.clickLock) return
+    root.clickLock = true
+    clickLockTimer.restart()
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.todo-omarchy"])
+  }
+
   function open() { root.openWindow() }
-  function close() {}
-  function toggle() { root.openWindow() }
-  function togglePanel() { root.openWindow() }
+  function close() { root.closeWindow() }
+  function toggle() { root.toggleWindow() }
+  function togglePanel() { root.toggleWindow() }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -84,7 +103,7 @@ BarWidget {
     tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · click for window"
 
     onPressed: function (b) {
-      if (b === Qt.LeftButton || b === Qt.RightButton) root.openWindow()
+      if (b === Qt.LeftButton || b === Qt.RightButton) root.toggleWindow()
       else if (b === Qt.MiddleButton) root.refresh()
     }
   }
