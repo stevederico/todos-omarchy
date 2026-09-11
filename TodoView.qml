@@ -865,7 +865,7 @@ Item {
             spacing: Style.space(8)
 
             Flickable {
-              width: Math.max(80, parent.width - addBtn.width - Style.space(16))
+              width: Math.max(80, parent.width - addBtn.width - closeBtn.width - Style.space(16))
               height: parent.height
               contentWidth: tabRow.implicitWidth
               clip: true
@@ -925,6 +925,18 @@ Item {
                 root.showAddList = false
                 if (root.showAddField) addField.forceActiveFocus()
               }
+            }
+
+            HeaderButton {
+              id: closeBtn
+              visible: !root.compact
+              height: parent.height
+              width: visible ? height : 0
+              iconText: "󰅖"
+              tooltipText: "Close"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              onClicked: root.closeRequested()
             }
           }
 

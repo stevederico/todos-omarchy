@@ -1,3 +1,9 @@
+0.36.0
+
+  Open window from bar
+  Stop overlay focus grab
+  Add window close
+
 0.35.0
 
   Stop dim on save

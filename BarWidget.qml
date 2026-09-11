@@ -4,7 +4,8 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Checklist count for the bar, and the host for the todo panel.
+// Checklist count for the bar. Click toggles the window app (not the
+// exclusive KeyboardPanel overlay, which steals all other windows).
 BarWidget {
   id: root
   moduleName: "sd.todo-omarchy"
@@ -30,19 +31,31 @@ BarWidget {
     remoteSync.enqueueAll()
   }
 
-  function togglePanel() {
-    if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
+  function dismissOverlay() {
+    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
   }
 
-  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
-
-  function open() {
-    if (panelLoader.item) panelLoader.item.open()
+  function openWindow() {
+    root.dismissOverlay()
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
   }
 
-  function close() {
-    if (panelLoader.item) panelLoader.item.close()
+  function hideWindow() {
+    root.dismissOverlay()
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.todo-omarchy"])
   }
+
+  function toggleWindow() {
+    root.dismissOverlay()
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.todo-omarchy"])
+  }
+
+  function togglePanel() { root.toggleWindow() }
+
+  readonly property bool opened: false
+
+  function open() { root.openWindow() }
+  function close() { root.hideWindow() }
 
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
@@ -86,7 +99,7 @@ BarWidget {
     function close(): void { root.close() }
     function show(): void { root.open() }
     function hide(): void { root.close() }
-    function toggle(): void { root.togglePanel() }
+    function toggle(): void { root.toggleWindow() }
   }
 
   BarIconButton {
@@ -94,15 +107,13 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: "󰄬"
-    tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · right-click for window"
+    tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · click for window"
 
     onPressed: function(b) {
-      if (b === Qt.RightButton) {
-        Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
-      } else if (b === Qt.MiddleButton) {
+      if (b === Qt.MiddleButton) {
         root.refresh()
       } else {
-        root.togglePanel()
+        root.toggleWindow()
       }
     }
   }

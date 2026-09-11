@@ -4,8 +4,9 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 
 ## What it does
 
-- Bar icon with the open-item count; click for the compact panel, right-click for a normal window
-- App launcher / Omarchy menu **Todos** opens the same UI as a tiled Hyprland window
+- Bar icon with the open-item count; click toggles a floating window (same as Almanac Calendar)
+- App launcher / Omarchy menu **Todos** opens the same window
+- The window floats so it does not take over a scrolling-layout column
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
 - **+** tab after the last list takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`)
 - Right-click tab → Rename / Reveal / Remove
@@ -40,16 +41,10 @@ omarchy plugin validate "$PLUGIN_DIR"
 omarchy plugin enable "$PLUGIN_ID" --section right --before omarchy.clock
 ```
 
-Open the compact bar panel:
+Open or toggle the window (app launcher, menu, or the bar icon):
 
 ```sh
-omarchy-shell sd.todo-omarchy toggle
-```
-
-Open the normal window (app launcher, menu, or right-click the bar icon):
-
-```sh
-omarchy-shell shell summon sd.todo-omarchy
+omarchy-shell shell toggle sd.todo-omarchy
 ```
 
 To show it in the application launcher:
@@ -58,7 +53,7 @@ To show it in the application launcher:
 cp extra/sd.todo-omarchy.desktop ~/.local/share/applications/
 ```
 
-Middle-click the bar icon to reload. In the compact panel, **Open Window** (or `w`) pops the same list out into a real window.
+Middle-click the bar icon to reload. Escape or the close chip dismisses the window.
 
 Optional menu row: merge `extra/omarchy-menu-todo.jsonc` into `~/.config/omarchy/extensions/omarchy-menu.jsonc`. Do not replace that file.
 

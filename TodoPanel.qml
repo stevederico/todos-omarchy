@@ -25,11 +25,9 @@ Panel {
   }
 
   function open() {
-    root.controller.show()
-    Qt.callLater(function () {
-      if (root.opened) setCenterHoverRevealSuppressed(true)
-      keyCatcher.forceActiveFocus()
-    })
+    // Compact overlay uses Exclusive layer-shell grab and blocks other
+    // windows. Open the tiled/floating window instead, like sd.calendar.
+    root.openWindow()
   }
 
   function close() {
