@@ -21,7 +21,12 @@ Panel {
   function openInEditor() { view.openInEditor() }
   function openWindow() {
     root.close()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
+    if (hostWidget && typeof hostWidget.openWindow === "function") {
+      hostWidget.openWindow()
+      return
+    }
+    var sh = root.bar && root.bar.shell
+    if (sh && typeof sh.summon === "function") sh.summon("sd.todo-omarchy")
   }
 
   function open() {

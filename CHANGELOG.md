@@ -1,3 +1,8 @@
+0.37.0
+
+  Fix bar icon click
+  Keep window loaded
+
 0.36.0
 
   Open window from bar

@@ -4,13 +4,13 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Checklist count for the bar. Click toggles the window app (not the
-// exclusive KeyboardPanel overlay, which steals all other windows).
+// Checklist count for the bar. Click opens the window app.
 BarWidget {
   id: root
   moduleName: "sd.todo-omarchy"
 
   readonly property int openCount: panelLoader.item ? Number(panelLoader.item.openCount || 0) : 0
+  readonly property bool opened: false
 
   function injectPanel() {
     var target = panelLoader.item
@@ -31,40 +31,14 @@ BarWidget {
     remoteSync.enqueueAll()
   }
 
-  function dismissOverlay() {
-    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
-  }
-
   function openWindow() {
-    root.dismissOverlay()
     Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
   }
 
-  function hideWindow() {
-    root.dismissOverlay()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.todo-omarchy"])
-  }
-
-  function toggleWindow() {
-    root.dismissOverlay()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.todo-omarchy"])
-  }
-
-  function togglePanel() { root.toggleWindow() }
-
-  readonly property bool opened: false
-
   function open() { root.openWindow() }
-  function close() { root.hideWindow() }
-
-  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
-
-  function closeForPopoutSwitch() {
-    if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
-  }
-
-  readonly property real openPanelIndicatorWidth: button.glyphPaintedWidth
-  readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
+  function close() {}
+  function toggle() { root.openWindow() }
+  function togglePanel() { root.openWindow() }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -99,7 +73,7 @@ BarWidget {
     function close(): void { root.close() }
     function show(): void { root.open() }
     function hide(): void { root.close() }
-    function toggle(): void { root.toggleWindow() }
+    function toggle(): void { root.toggle() }
   }
 
   BarIconButton {
@@ -109,12 +83,9 @@ BarWidget {
     text: "󰄬"
     tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · click for window"
 
-    onPressed: function(b) {
-      if (b === Qt.MiddleButton) {
-        root.refresh()
-      } else {
-        root.toggleWindow()
-      }
+    onPressed: function (b) {
+      if (b === Qt.LeftButton || b === Qt.RightButton) root.openWindow()
+      else if (b === Qt.MiddleButton) root.refresh()
     }
   }
 }
