@@ -53,7 +53,7 @@ To show it in the application launcher:
 cp extra/sd.todo-omarchy.desktop ~/.local/share/applications/
 ```
 
-Middle-click the bar icon to reload. Escape or the close chip dismisses the window.
+Middle-click the bar icon to reload. Escape or the bar icon dismisses the window.
 
 Optional menu row: merge `extra/omarchy-menu-todo.jsonc` into `~/.config/omarchy/extensions/omarchy-menu.jsonc`. Do not replace that file.
 

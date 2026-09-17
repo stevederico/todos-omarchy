@@ -1,3 +1,7 @@
+0.39.0
+
+  Hide window close chip
+
 0.38.0
 
   Toggle window from bar
