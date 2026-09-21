@@ -1,3 +1,7 @@
+0.47.0
+
+  Complete Almanac via POST
+
 0.46.0
 
   Rename dottie-todos-omarchy

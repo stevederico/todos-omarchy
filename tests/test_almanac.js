@@ -188,6 +188,32 @@ test("almanac-todos.sh posts a title and patches done", async () => {
   assert.equal(seen[1].url, "/v1/c/cal_test/todos/todo-new")
 })
 
+test("almanac-todos.sh posts done with uid on the collection", async () => {
+  const seen = []
+  const server = http.createServer((req, res) => {
+    let raw = ""
+    req.on("data", (c) => { raw += c })
+    req.on("end", () => {
+      seen.push({ method: req.method, url: req.url, body: raw })
+      res.writeHead(200, { "content-type": "application/json" })
+      res.end(JSON.stringify({ uid: "todo-new", title: "Call Bob", done: true }))
+    })
+  })
+  const port = await listen(server)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
+  const config = writeConfig(dir, port)
+  const body = path.join(dir, "body.json")
+  fs.writeFileSync(body, JSON.stringify({ uid: "todo-new", title: "Call Bob", done: true }))
+  const result = await runScript(["post", "--cal", "cal_test", "--body-file", body], { ALMANAC_CONFIG: config })
+  server.close()
+  fs.rmSync(dir, { recursive: true, force: true })
+  assert.equal(result.status, 0, result.stdout)
+  assert.equal(seen[0].method, "POST")
+  assert.equal(seen[0].url, "/v1/c/cal_test/todos")
+  assert.match(seen[0].body, /"uid":"todo-new"/)
+  assert.match(seen[0].body, /"done":true/)
+})
+
 test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
   const server = http.createServer((_req, res) => {
     res.writeHead(401, { "content-type": "application/json" })

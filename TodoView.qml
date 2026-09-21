@@ -445,6 +445,8 @@ Item {
     }
     var body = payload.body || {}
     var wire = { _n: almanacToken }
+    if (payload.uid) wire.uid = payload.uid
+    if (body.uid !== undefined) wire.uid = body.uid
     if (body.title !== undefined) wire.title = body.title
     if (body.done !== undefined) wire.done = body.done
     almanacBodyFile.setText(JSON.stringify(wire) + "\n")
@@ -550,7 +552,12 @@ Item {
 
   function complete(item) {
     if (isAlmanac) {
-      startAlmanacWrite("patch", { uid: item.uid || item.id, body: { done: !item.isCompleted } }, item.isCompleted ? "Reopened" : "Completed")
+      var uid = item.uid || ""
+      if (!uid) {
+        lastError = "Almanac todo missing uid"
+        return
+      }
+      startAlmanacWrite("post", { uid: uid, body: { title: trim(item.text), done: !item.isCompleted } }, item.isCompleted ? "Reopened" : "Completed")
       return
     }
     mutate(function () {
@@ -569,7 +576,12 @@ Item {
 
   function saveEdit(item, text) {
     if (isAlmanac) {
-      startAlmanacWrite("patch", { uid: item.uid || item.id, body: { title: trim(text) } }, "Edited")
+      var uid = item.uid || ""
+      if (!uid) {
+        lastError = "Almanac todo missing uid"
+        return
+      }
+      startAlmanacWrite("post", { uid: uid, body: { title: trim(text), done: !!item.isCompleted } }, "Edited")
       return
     }
     mutate(function () {
