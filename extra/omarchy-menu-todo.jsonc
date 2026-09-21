@@ -1,9 +1,9 @@
 {
-  "apps.todo-omarchy": {
+  "apps.dottie-todos-omarchy": {
     "icon": "󰄬",
     "label": "Dottie-Todos",
     "aliases": ["dottie", "dottie-todos", "todo", "todos", "checklist"],
     "description": "Open Dottie-Todos as a window",
-    "action": "omarchy-shell shell summon sd.todo-omarchy"
+    "action": "omarchy-shell shell summon sd.dottie-todos-omarchy"
   }
 }

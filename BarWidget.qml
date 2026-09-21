@@ -7,7 +7,7 @@ import qs.Ui
 // Checklist count for the bar. Click toggles the window app.
 BarWidget {
   id: root
-  moduleName: "sd.todo-omarchy"
+  moduleName: "sd.dottie-todos-omarchy"
 
   readonly property int openCount: panelLoader.item ? Number(panelLoader.item.openCount || 0) : 0
   readonly property bool opened: false
@@ -40,18 +40,18 @@ BarWidget {
   }
 
   function openWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.dottie-todos-omarchy"])
   }
 
   function closeWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.dottie-todos-omarchy"])
   }
 
   function toggleWindow() {
     if (root.clickLock) return
     root.clickLock = true
     clickLockTimer.restart()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.dottie-todos-omarchy"])
   }
 
   function open() { root.openWindow() }
@@ -85,6 +85,17 @@ BarWidget {
   }
 
   IpcHandler {
+    target: "sd.dottie-todos-omarchy"
+
+    function refresh(): void { root.broadcast("refresh") }
+    function open(): void { root.open() }
+    function close(): void { root.close() }
+    function show(): void { root.open() }
+    function hide(): void { root.close() }
+    function toggle(): void { root.toggle() }
+  }
+
+  IpcHandler {
     target: "sd.todo-omarchy"
 
     function refresh(): void { root.broadcast("refresh") }
@@ -93,6 +104,10 @@ BarWidget {
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
+    function capture(arg: string): string {
+      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todos-omarchy", "capture", arg || "{}"])
+      return "ok"
+    }
   }
 
   BarIconButton {

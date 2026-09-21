@@ -1,6 +1,6 @@
 # Dottie-Todos
 
-Omarchy bar **and window** app (`todo-omarchy`) for open items in plain markdown todos and [Almanac](https://almanac.dottie.ai) hosted todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
+Omarchy bar **and window** app (`dottie-todos-omarchy`) for open items in plain markdown todos and [Almanac](https://almanac.dottie.ai) hosted todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
 
 ## What it does
 
@@ -13,11 +13,11 @@ Omarchy bar **and window** app (`todo-omarchy`) for open items in plain markdown
 - Right-click tab → Rename / Reveal / Remove (Reveal is markdown only)
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)
-- Capture box: `omarchy-shell shell call sd.todo-omarchy capture {}` — large centered field; Enter adds one item to the active list, Esc closes
+- Capture box: `omarchy-shell shell call sd.dottie-todos-omarchy capture {}` — large centered field; Enter adds one item to the active list, Esc closes
 - Click the circle — mark complete (`- [x]`), move that line to the **end of the file**; **Show Completed** to see / reopen
 - Click text to edit; right-click for Complete / Copy / Delete
 - Drag open items to reorder
-- Live-reloads when the active file changes; tabs persist in `~/.config/todo-omarchy/sources.json`
+- Live-reloads when the active file changes; tabs persist in `~/.config/dottie-todos-omarchy/sources.json`
 
 Opening or closing the panel or window syncs that file's git remote (pull when behind; push when ahead). Edits commit and push. Fetch failures stay silent. Diverged branches and overlapping uncommitted files are left alone. **Refresh** (or `r`) forces a check.
 
@@ -28,17 +28,17 @@ Completing an item always appends it to a sibling `CHANGELOG.md` (creates the fi
 Review the plugin, then enable it. Omarchy plugins run unsandboxed inside `omarchy-shell`.
 
 ```sh
-omarchy plugin add https://github.com/stevederico/todo-omarchy.git
-omarchy plugin enable sd.todo-omarchy --section right --before omarchy.clock
+omarchy plugin add https://github.com/stevederico/dottie-todos-omarchy.git
+omarchy plugin enable sd.dottie-todos-omarchy --section right --before omarchy.clock
 ```
 
 Local checkout (copy the repository root, not a symlink):
 
 ```sh
-PLUGIN_ID="sd.todo-omarchy"
+PLUGIN_ID="sd.dottie-todos-omarchy"
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 mkdir -p "$PLUGIN_DIR"
-cp -a ~/Projects/todo-omarchy/. "$PLUGIN_DIR/"
+cp -a ~/Projects/dottie-todos-omarchy/. "$PLUGIN_DIR/"
 omarchy plugin validate "$PLUGIN_DIR"
 omarchy plugin enable "$PLUGIN_ID" --section right --before omarchy.clock
 ```
@@ -46,13 +46,13 @@ omarchy plugin enable "$PLUGIN_ID" --section right --before omarchy.clock
 Open or toggle the window (app launcher, menu, or the bar icon):
 
 ```sh
-omarchy-shell shell toggle sd.todo-omarchy
+omarchy-shell shell toggle sd.dottie-todos-omarchy
 ```
 
 To show it in the application launcher:
 
 ```sh
-cp extra/sd.todo-omarchy.desktop ~/.local/share/applications/
+cp extra/sd.dottie-todos-omarchy.desktop ~/.local/share/applications/
 ```
 
 Middle-click the bar icon to reload. Escape or the bar icon dismisses the window.

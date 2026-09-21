@@ -136,7 +136,7 @@ test("almanac-todos.sh lists with bearer and user-agent", async () => {
     res.end(JSON.stringify({ todos: [{ uid: "todo-1", title: "Milk", done: false, tags: [] }] }))
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
   const config = writeConfig(dir, port)
   const result = await runScript(["list", "--cal", "cal_test"], {
     ALMANAC_CONFIG: config,
@@ -149,7 +149,7 @@ test("almanac-todos.sh lists with bearer and user-agent", async () => {
   assert.equal(seen[0].method, "GET")
   assert.equal(seen[0].url, "/v1/c/cal_test/todos")
   assert.equal(seen[0].auth, "Bearer test-key")
-  assert.match(seen[0].ua, /todo-omarchy/)
+  assert.match(seen[0].ua, /dottie-todos-omarchy/)
   assert.equal(result.stdout.includes("test-key"), false)
 })
 
@@ -170,7 +170,7 @@ test("almanac-todos.sh posts a title and patches done", async () => {
     })
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
   const config = writeConfig(dir, port)
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ title: "Call Bob" }))
@@ -194,7 +194,7 @@ test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
     res.end(JSON.stringify({ error: "unauthorized" }))
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
   const config = writeConfig(dir, port)
   const result = await runScript(["list"], { ALMANAC_CONFIG: config })
   server.close()

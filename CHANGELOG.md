@@ -1,3 +1,7 @@
+0.46.0
+
+  Rename dottie-todos-omarchy
+
 0.45.0
 
   Enlarge bar checkmark

@@ -8,7 +8,7 @@ fail() {
   exit 1
 }
 
-UA="${ALMANAC_UA:-Mozilla/5.0 todo-omarchy}"
+UA="${ALMANAC_UA:-Mozilla/5.0 dottie-todos-omarchy}"
 CONFIG="${ALMANAC_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/almanac/hosted-calendars.json}"
 BASE="${ALMANAC_BASE:-https://almanac.dottie.ai}"
 CMD=""

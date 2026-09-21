@@ -18,11 +18,11 @@ Item {
   signal openWindowRequested()
 
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
+  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/dottie-todos-omarchy"
   readonly property string sourcesPath: configDir + "/sources.json"
   readonly property string calendarsPath: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/almanac/hosted-calendars.json"
-  readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-commit-msg"
-  readonly property string almanacBodyPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-almanac-body.json"
+  readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todos-omarchy-commit-msg"
+  readonly property string almanacBodyPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todos-omarchy-almanac-body.json"
 
   property var sources: []
   property string selectedID: ""
