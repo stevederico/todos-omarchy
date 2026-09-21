@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import qs.Commons
 
@@ -10,6 +11,7 @@ Item {
   property var shell: null
   property var manifest: null
   property bool closingFromHost: false
+  property string captureHint: "Enter adds · Esc closes"
   readonly property bool opened: window.visible
   readonly property var view: viewLoader.item
 
@@ -43,6 +45,30 @@ Item {
     if (!remoteLoader.item || !remoteLoader.item.enqueueAll) return
     remoteLoader.item.skipRebase = view && view.notSynced === true
     remoteLoader.item.enqueueAll()
+  }
+
+  function capture(_arg) {
+    if (captureWindow.visible) {
+      captureWindow.visible = false
+      return "closed"
+    }
+    captureHint = "Enter adds · Esc closes"
+    captureField.text = ""
+    captureWindow.visible = true
+    return "ok"
+  }
+
+  function submitCapture() {
+    if (!view || !view.addTodo) return
+    var text = captureField.text.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "")
+    if (text.length === 0) return
+    if (view.isBusy) {
+      captureHint = "Busy — try again"
+      return
+    }
+    view.addTodo(text)
+    captureField.text = ""
+    captureWindow.visible = false
   }
 
   Loader {
@@ -88,4 +114,64 @@ Item {
     target: viewLoader.item
     function onCloseRequested() { root.requestClose() }
   }
+
+  FloatingWindow {
+    id: captureWindow
+    title: "New todo"
+    visible: false
+    color: Color.background
+    implicitWidth: 1280
+    implicitHeight: 720
+    minimumSize: Qt.size(720, 420)
+
+    onVisibleChanged: if (visible) captureFocus.restart()
+
+    Timer {
+      id: captureFocus
+      interval: 80
+      onTriggered: {
+        captureField.forceActiveFocus()
+        Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "title:^New todo$"])
+      }
+    }
+
+    TextArea {
+      id: captureField
+      anchors.fill: parent
+      anchors.margins: 36
+      anchors.bottomMargin: 64
+      placeholderText: "New to-do"
+      wrapMode: TextEdit.Wrap
+      font.family: Style.font.family
+      font.pixelSize: 32
+      color: Color.foreground
+      selectionColor: Color.accent
+      selectedTextColor: Color.foreground
+      placeholderTextColor: Qt.darker(Color.foreground, 1.6)
+      background: null
+      selectByMouse: true
+
+      Keys.onPressed: function (event) {
+        if (event.key === Qt.Key_Escape) {
+          captureWindow.visible = false
+          event.accepted = true
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+          root.submitCapture()
+          event.accepted = true
+        }
+      }
+    }
+
+    Text {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.margins: 28
+      text: captureHint
+      color: Qt.darker(Color.foreground, 1.55)
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+    }
+  }
+
 }

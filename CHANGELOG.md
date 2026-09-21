@@ -1,3 +1,7 @@
+0.40.0
+
+  Add capture box
+
 0.39.0
 
   Hide window close chip

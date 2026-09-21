@@ -12,6 +12,7 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - Right-click tab → Rename / Reveal / Remove
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)
+- Capture box: `omarchy-shell shell call sd.todo-omarchy capture {}` — large centered field; Enter adds one item to the active list, Esc closes
 - Click the circle — mark complete (`- [x]`), move that line to the **end of the file**; **Show Completed** to see / reopen
 - Click text to edit; right-click for Complete / Copy / Delete
 - Drag open items to reorder
