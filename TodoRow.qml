@@ -21,6 +21,9 @@ Item {
   property int fontWeight: 700
   property int fontSize: 16
   property int iconSize: 18
+  property string previewId: ""
+  property bool previewDone: false
+  property bool hideWhenDone: false
 
   signal completeClicked()
   signal editRequested()
@@ -33,18 +36,29 @@ Item {
 
   readonly property int pad: 10
   readonly property int iconBox: Math.max(iconSize, 22)
+  readonly property bool previewMatch: !!(item && previewId && (item.id === previewId || item.uid === previewId))
+  readonly property bool doneLook: previewMatch ? previewDone : !!(item && item.isCompleted)
   readonly property real labelHeight: {
     if (row.editing) return Math.max(fontSize, editField.implicitHeight)
     return Math.max(fontSize, itemLabel.implicitHeight)
   }
-  implicitHeight: Math.max(iconBox, labelHeight) + pad * 2
+  readonly property real naturalHeight: Math.max(iconBox, labelHeight) + pad * 2
+  property bool allowTuck: false
+  readonly property bool tuckAway: hideWhenDone && doneLook && allowTuck && !row.editing
+
+  implicitHeight: tuckAway ? 0 : naturalHeight
   height: implicitHeight
-  opacity: dragging ? 0 : (item && item.isCompleted ? 0.75 : 1)
+  clip: true
+  opacity: dragging ? 0 : (tuckAway ? 0 : (doneLook ? 0.72 : 1))
   z: dragging ? 0 : 1
 
+  Behavior on implicitHeight {
+    enabled: row.hideWhenDone
+    NumberAnimation { duration: 260; easing.type: Easing.InCubic }
+  }
   Behavior on opacity {
     enabled: row.animateShift
-    NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
+    NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
   }
 
   transform: Translate {
@@ -53,6 +67,16 @@ Item {
       enabled: row.animateShift
       NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
     }
+  }
+
+  onDoneLookChanged: {
+    if (doneLook) checkPop.start()
+    if (hideWhenDone && doneLook) allowTuck = true
+    if (!doneLook) allowTuck = false
+  }
+
+  Component.onCompleted: {
+    if (hideWhenDone && doneLook) Qt.callLater(function () { row.allowTuck = true })
   }
 
   function globalYAt(mouse) {
@@ -142,14 +166,21 @@ Item {
     Text {
       id: checkIcon
       anchors.centerIn: parent
-      text: item && item.isCompleted ? "󰄲" : "󰄱"
-      color: item && item.isCompleted ? Color.accent : dim
+      text: row.doneLook ? "󰄲" : "󰄱"
+      color: row.doneLook ? Color.accent : dim
       font.family: fontFamily
       font.pixelSize: iconSize
       font.weight: fontWeight
       font.bold: true
       scale: checkHit.pressed ? 0.82 : 1
+      Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
       Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+    }
+
+    SequentialAnimation {
+      id: checkPop
+      NumberAnimation { target: checkIcon; property: "scale"; to: 1.14; duration: 90; easing.type: Easing.OutCubic }
+      NumberAnimation { target: checkIcon; property: "scale"; to: 1; duration: 120; easing.type: Easing.OutCubic }
     }
 
     MouseArea {
@@ -173,16 +204,30 @@ Item {
     anchors.rightMargin: 8
     anchors.verticalCenter: parent.verticalCenter
     text: item ? item.text : ""
-    color: item && item.isCompleted ? dim : foreground
+    color: row.doneLook ? dim : foreground
     font.family: fontFamily
     font.pixelSize: fontSize
     font.weight: fontWeight
     font.bold: true
-    font.strikeout: item && item.isCompleted
     wrapMode: Text.Wrap
     elide: Text.ElideNone
     maximumLineCount: 24
     verticalAlignment: Text.AlignVCenter
+    Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+  }
+
+  Rectangle {
+    id: strike
+    visible: !row.editing
+    height: 1
+    radius: 1
+    color: row.dim
+    opacity: row.doneLook ? 0.55 : 0
+    width: row.doneLook ? Math.min(itemLabel.contentWidth, itemLabel.width) : 0
+    anchors.left: itemLabel.left
+    anchors.verticalCenter: itemLabel.verticalCenter
+    Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
   }
 
   TextField {

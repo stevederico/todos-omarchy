@@ -490,15 +490,17 @@ function defaultTodosPath(home, existsFn) {
   return candidates[0]
 }
 
-function filterSections(sections, query, showCompleted) {
+function filterSections(sections, query, showCompleted, keepId) {
   var q = trim(query)
+  var keep = trim(keepId)
   var out = []
   for (var s = 0; s < (sections || []).length; s++) {
     var section = sections[s]
     var items = []
     for (var i = 0; i < section.items.length; i++) {
       var item = section.items[i]
-      if (!showCompleted && item.isCompleted) continue
+      var kept = keep && (item.id === keep || item.uid === keep)
+      if (!showCompleted && item.isCompleted && !kept) continue
       if (q.length > 0) {
         var hay = (item.text + " " + section.title).toLowerCase()
         if (hay.indexOf(q.toLowerCase()) < 0) continue

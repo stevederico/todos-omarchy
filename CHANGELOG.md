@@ -1,3 +1,7 @@
+0.51.0
+
+  Animate complete strikethrough
+
 0.50.0
 
   Uncover version in footer

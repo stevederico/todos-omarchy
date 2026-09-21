@@ -241,4 +241,6 @@ test("filterSections hides completed and matches query", () => {
   const q = Doc.filterSections(sections, "oth", false)
   assert.equal(q.length, 1)
   assert.equal(q[0].title, "Other")
+  const kept = Doc.filterSections(sections, "", false, shown[0].items[1].id)
+  assert.equal(kept[0].items.length, 2)
 })

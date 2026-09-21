@@ -49,6 +49,8 @@ Item {
   property bool sourcesReady: false
   property int almanacToken: 0
   property var pendingAlmanac: null
+  property bool completeAnimDone: true
+  property bool pendingCompleteReload: false
 
   property string query: ""
   property bool showCompleted: false
@@ -91,7 +93,9 @@ Item {
   readonly property int fontCaption: 13
   readonly property int fontIcon: 18
   readonly property int chipHeight: Math.max(Style.spacing.controlHeight, 36)
-  readonly property var filtered: Doc.filterSections(sections, query, showCompleted)
+  property string completingId: ""
+  property bool completingDone: true
+  readonly property var filtered: Doc.filterSections(sections, query, showCompleted, completingId)
   readonly property bool fieldFocused: addField.activeFocus || listPathField.activeFocus || filterField.activeFocus || renameField.activeFocus || editingId !== ""
   readonly property string changelogPath: filePath !== "" ? dirname(filePath) + "/CHANGELOG.md" : ""
   readonly property bool isAlmanac: {
@@ -471,6 +475,8 @@ Item {
     isBusy = false
     if (!ok) {
       lastError = Almanac.errorMessage(body)
+      completingId = ""
+      pendingCompleteReload = false
       return
     }
     lastError = ""
@@ -478,7 +484,31 @@ Item {
       applyAlmanacList(body)
       return
     }
-    almanacReload()
+    pendingCompleteReload = true
+    finishCompleteAnim()
+  }
+
+  function itemKey(item) {
+    if (!item) return ""
+    return item.uid || item.id || ""
+  }
+
+  function beginCompleteAnim(item, willComplete) {
+    completingId = itemKey(item)
+    completingDone = willComplete
+    completeAnimDone = false
+    pendingCompleteReload = false
+    completeAnimTimer.restart()
+  }
+
+  function finishCompleteAnim() {
+    if (!completeAnimDone) return
+    if (isAlmanac && !pendingCompleteReload && isBusy) return
+    completingId = ""
+    if (pendingCompleteReload) {
+      pendingCompleteReload = false
+      almanacReload()
+    }
   }
 
   function save(status, message, extraFiles) {
@@ -551,10 +581,13 @@ Item {
   }
 
   function complete(item) {
+    if (isBusy) return
+    beginCompleteAnim(item, !item.isCompleted)
     if (isAlmanac) {
       var uid = item.uid || ""
       if (!uid) {
         lastError = "Almanac todo missing uid"
+        completingId = ""
         return
       }
       startAlmanacWrite("post", { uid: uid, body: { title: trim(item.text), done: !item.isCompleted } }, item.isCompleted ? "Reopened" : "Completed")
@@ -778,14 +811,20 @@ Item {
   function openItems(section) {
     var out = []
     if (!section || !section.items) return out
-    for (var i = 0; i < section.items.length; i++) if (!section.items[i].isCompleted) out.push(section.items[i])
+    for (var i = 0; i < section.items.length; i++) {
+      var it = section.items[i]
+      if (!it.isCompleted || itemKey(it) === completingId) out.push(it)
+    }
     return out
   }
 
   function doneItems(section) {
     var out = []
     if (!section || !section.items) return out
-    for (var i = 0; i < section.items.length; i++) if (section.items[i].isCompleted) out.push(section.items[i])
+    for (var i = 0; i < section.items.length; i++) {
+      var it = section.items[i]
+      if (it.isCompleted && itemKey(it) !== completingId) out.push(it)
+    }
     return out
   }
 
@@ -903,6 +942,15 @@ Item {
     id: ghostFadeTimer
     interval: 140
     onTriggered: root.clearGhost()
+  }
+
+  Timer {
+    id: completeAnimTimer
+    interval: 360
+    onTriggered: {
+      root.completeAnimDone = true
+      root.finishCompleteAnim()
+    }
   }
 
   Timer {
@@ -1307,6 +1355,9 @@ Item {
                     fontWeight: root.fontWeight
                     fontSize: root.fontBody
                     iconSize: root.fontIcon
+                    previewId: root.completingId
+                    previewDone: root.completingDone
+                    hideWhenDone: !root.showCompleted && root.completingDone && root.itemKey(modelData) === root.completingId
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
@@ -1349,6 +1400,9 @@ Item {
                     fontWeight: root.fontWeight
                     fontSize: root.fontBody
                     iconSize: root.fontIcon
+                    previewId: root.completingId
+                    previewDone: root.completingDone
+                    hideWhenDone: !root.showCompleted && root.completingDone && root.itemKey(modelData) === root.completingId
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
