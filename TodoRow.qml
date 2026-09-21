@@ -18,7 +18,8 @@ Item {
   property string draft: ""
   property color foreground: Color.foreground
   property color dim: Qt.darker(foreground, 1.55)
-  property string fontFamily: Style.font.family
+  property string fontFamily: "JetBrainsMono Nerd Font"
+  property int fontWeight: 700
 
   signal completeClicked()
   signal editRequested()
@@ -138,6 +139,7 @@ Item {
         color: item && item.isCompleted ? Color.accent : dim
         font.family: fontFamily
         font.pixelSize: Style.font.icon
+        font.weight: fontWeight
         Layout.preferredWidth: Style.space(28)
         Layout.preferredHeight: Style.space(28)
         Layout.alignment: Qt.AlignVCenter
@@ -172,6 +174,7 @@ Item {
           color: item && item.isCompleted ? dim : foreground
           font.family: fontFamily
           font.pixelSize: Style.font.body
+          font.weight: fontWeight
           font.strikeout: item && item.isCompleted
           wrapMode: Text.Wrap
           elide: Text.ElideNone
@@ -187,6 +190,8 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: row.draft
           foreground: row.foreground
+          font.family: row.fontFamily
+          font.weight: row.fontWeight
           onAccepted: row.editAccepted(text)
           Keys.onEscapePressed: row.editCancelled()
           onVisibleChanged: if (visible) forceActiveFocus()

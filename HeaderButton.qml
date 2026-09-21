@@ -12,7 +12,8 @@ BorderSurface {
   property bool selected: false
   property bool bordered: false
   property color foreground: Color.foreground
-  property string fontFamily: Style.font.family
+  property string fontFamily: "JetBrainsMono Nerd Font"
+  property int fontWeight: 700
   property real fontSize: iconText !== "" ? Style.font.icon : Style.font.caption
   property real horizontalPadding: Style.spacing.controlPaddingX
 
@@ -42,7 +43,7 @@ BorderSurface {
     color: root.foreground
     font.family: root.fontFamily
     font.pixelSize: root.fontSize
-    font.bold: root.selected
+    font.weight: root.fontWeight
   }
 
   CenteredLabel {
@@ -52,6 +53,7 @@ BorderSurface {
     color: root.foreground
     font.family: root.fontFamily
     font.pixelSize: root.fontSize
+    font.weight: root.fontWeight
   }
 
   MouseArea {
@@ -70,5 +72,6 @@ BorderSurface {
     visible: root.tooltipText !== "" && mouse.containsMouse
     text: root.tooltipText
     fontFamily: root.fontFamily
+    font.weight: root.fontWeight
   }
 }
