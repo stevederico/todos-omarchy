@@ -160,6 +160,11 @@ test("almanac-todos.sh posts a title and patches done", async () => {
     req.on("data", (c) => { raw += c })
     req.on("end", () => {
       seen.push({ method: req.method, url: req.url, body: raw })
+      if (req.method === "GET" && !req.url.includes("/todos")) {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: "cal_test", feed: "plain" }))
+        return
+      }
       if (req.method === "POST") {
         res.writeHead(201, { "content-type": "application/json" })
         res.end(JSON.stringify({ uid: "todo-new", title: "Call Bob", done: false }))
@@ -182,11 +187,11 @@ test("almanac-todos.sh posts a title and patches done", async () => {
   assert.equal(created.status, 0, created.stdout)
   assert.match(created.stdout, /todo-new/)
   assert.equal(patched.status, 0, patched.stdout)
-  assert.equal(seen[0].method, "POST")
-  assert.equal(seen[0].url, "/v1/c/cal_test/todos")
   assert.equal(seen[1].method, "POST")
   assert.equal(seen[1].url, "/v1/c/cal_test/todos")
-  assert.match(seen[1].body, /todo-new/)
+  assert.equal(seen[3].method, "POST")
+  assert.equal(seen[3].url, "/v1/c/cal_test/todos")
+  assert.match(seen[3].body, /todo-new/)
 })
 
 test("almanac-todos.sh posts done with uid on the collection", async () => {
@@ -196,6 +201,11 @@ test("almanac-todos.sh posts done with uid on the collection", async () => {
     req.on("data", (c) => { raw += c })
     req.on("end", () => {
       seen.push({ method: req.method, url: req.url, body: raw })
+      if (req.method === "GET" && !req.url.includes("/todos")) {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: "cal_test", feed: "plain" }))
+        return
+      }
       res.writeHead(200, { "content-type": "application/json" })
       res.end(JSON.stringify({ uid: "todo-new", title: "Call Bob", done: true }))
     })
@@ -209,10 +219,10 @@ test("almanac-todos.sh posts done with uid on the collection", async () => {
   server.close()
   fs.rmSync(dir, { recursive: true, force: true })
   assert.equal(result.status, 0, result.stdout)
-  assert.equal(seen[0].method, "POST")
-  assert.equal(seen[0].url, "/v1/c/cal_test/todos")
-  assert.match(seen[0].body, /"uid":"todo-new"/)
-  assert.match(seen[0].body, /"done":true/)
+  assert.equal(seen[1].method, "POST")
+  assert.equal(seen[1].url, "/v1/c/cal_test/todos")
+  assert.match(seen[1].body, /"uid":"todo-new"/)
+  assert.match(seen[1].body, /"done":true/)
 })
 
 test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
@@ -229,4 +239,129 @@ test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
   assert.notEqual(result.status, 0)
   assert.match(result.stdout, /^ERROR:unauthorized/)
   assert.equal(result.stdout.includes("test-key"), false)
+})
+
+function almanacBin() {
+  return process.env.ALMANAC_BIN
+    || path.join(process.env.HOME, "Projects/almanac/target/debug/almanac")
+}
+
+function runBin(bin, args, input, env) {
+  return new Promise((resolve) => {
+    const child = spawn(bin, args, { env: { ...process.env, ...env } })
+    let stdout = ""
+    child.stdout.on("data", (c) => { stdout += c })
+    child.stdin.end(input)
+    child.on("close", (status) => resolve({ status, stdout: stdout.trim() }))
+  })
+}
+
+test("almanac-todos.sh seals a post and opens the reply", async () => {
+  const bin = almanacBin()
+  if (!fs.existsSync(bin)) return
+  const seen = []
+  const server = http.createServer((req, res) => {
+    let raw = ""
+    req.on("data", (c) => { raw += c })
+    req.on("end", () => {
+      seen.push({ method: req.method, url: req.url, body: raw })
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: "cal_test", feed: "seal" }))
+        return
+      }
+      res.writeHead(201, { "content-type": "application/json" })
+      const sent = JSON.parse(raw)
+      res.end(JSON.stringify({ uid: req.url.split("/").pop(), seal: sent.seal }))
+    })
+  })
+  const port = await listen(server)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
+  const config = writeConfig(dir, port)
+  const body = path.join(dir, "body.json")
+  fs.writeFileSync(body, JSON.stringify({ title: "Call Bob" }))
+  const created = await runScript(["post", "--cal", "cal_test", "--body-file", body], {
+    ALMANAC_CONFIG: config,
+    ALMANAC_BIN: bin
+  })
+  server.close()
+  fs.rmSync(dir, { recursive: true, force: true })
+  assert.equal(created.status, 0, created.stderr + created.stdout)
+  const put = seen.find((row) => row.method === "PUT")
+  assert.ok(put)
+  assert.match(put.url, /^\/v1\/c\/cal_test\/todos\/todo-/)
+  const sent = JSON.parse(put.body)
+  assert.match(sent.seal, /^alm1\./)
+  assert.equal(put.body.includes("Call Bob"), false)
+  assert.match(created.stdout, /Call Bob/)
+  assert.equal(created.stdout.includes("test-key"), false)
+})
+
+test("almanac-todos.sh opens a sealed list and merges a patch", async () => {
+  const bin = almanacBin()
+  if (!fs.existsSync(bin)) return
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-almanac-"))
+  const config = writeConfig(dir, 9)
+  const sealed = await runBin(bin, ["seal", "--cal", "cal_test", "--kind", "todo", "--uid", "todo-milk"], JSON.stringify({
+    uid: "todo-milk",
+    title: "Milk",
+    done: false
+  }), { ALMANAC_CREDS: config })
+  assert.equal(sealed.status, 0, sealed.stdout)
+  const store = { "todo-milk": sealed.stdout }
+  const seen = []
+  const server = http.createServer((req, res) => {
+    let raw = ""
+    req.on("data", (c) => { raw += c })
+    req.on("end", () => {
+      seen.push({ method: req.method, url: req.url, body: raw })
+      if (req.url === "/v1/c/cal_test") {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: "cal_test", feed: "seal" }))
+        return
+      }
+      if (req.method === "GET" && req.url === "/v1/c/cal_test/todos") {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ todos: [{ uid: "todo-milk", seal: store["todo-milk"] }] }))
+        return
+      }
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ uid: "todo-milk", seal: store["todo-milk"] }))
+        return
+      }
+      const sent = JSON.parse(raw)
+      store["todo-milk"] = sent.seal
+      res.writeHead(200, { "content-type": "application/json" })
+      res.end(JSON.stringify({ uid: "todo-milk", seal: sent.seal }))
+    })
+  })
+  const port = await listen(server)
+  fs.writeFileSync(config, JSON.stringify([{
+    id: "cal_test",
+    name: "Test",
+    key: "test-key",
+    write: `http://127.0.0.1:${port}/v1/c/cal_test/events`
+  }]) + "\n")
+  const listed = await runScript(["list", "--cal", "cal_test"], { ALMANAC_CONFIG: config, ALMANAC_BIN: bin })
+  const body = path.join(dir, "body.json")
+  fs.writeFileSync(body, JSON.stringify({ done: true }))
+  const patched = await runScript(["patch", "--cal", "cal_test", "--uid", "todo-milk", "--body-file", body], {
+    ALMANAC_CONFIG: config,
+    ALMANAC_BIN: bin
+  })
+  server.close()
+  const opened = await runBin(bin, ["open", "--cal", "cal_test", "--kind", "todo", "--uid", "todo-milk"], store["todo-milk"], {
+    ALMANAC_CREDS: config
+  })
+  fs.rmSync(dir, { recursive: true, force: true })
+  assert.equal(listed.status, 0, listed.stderr + listed.stdout)
+  assert.match(listed.stdout, /Milk/)
+  assert.equal(listed.stdout.includes("alm1."), false)
+  assert.equal(patched.status, 0, patched.stderr + patched.stdout)
+  assert.match(patched.stdout, /Milk/)
+  const put = seen.find((row) => row.method === "PUT")
+  assert.equal(put.body.includes("Milk"), false)
+  assert.equal(JSON.parse(opened.stdout).done, true)
+  assert.equal(JSON.parse(opened.stdout).title, "Milk")
 })

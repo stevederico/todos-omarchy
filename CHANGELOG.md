@@ -1,3 +1,8 @@
+0.54.0
+
+  Seal Almanac writes
+  Open sealed lists
+
 0.53.0
 
   Drop duplicate desktop entry

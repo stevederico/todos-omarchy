@@ -8,7 +8,7 @@ Omarchy bar **and window** app (`dottie-todos-omarchy`) for open items in plain 
 - Omarchy menu **Dottie-Todos** opens the same window
 - The window floats so it does not take over a scrolling-layout column
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
-- Almanac tab when `~/.config/almanac/hosted-calendars.json` exists (same write key as the calendar). Completes, edits, and deletes over HTTP. No git.
+- Almanac tab when `~/.config/almanac/hosted-calendars.json` exists (same write key as the calendar). Completes, edits, and deletes over HTTP. No git. A `seal` calendar is sealed before write and opened after read. A `plain` calendar stays plaintext.
 - **+** tab after the last list takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`) or `almanac` / `almanac:cal_…`
 - Right-click tab → Rename / Reveal / Remove (Reveal is markdown only)
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
