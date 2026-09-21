@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "sd.todo-omarchy",
   "name": "Dottie-Todos",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "author": "sd",
   "license": "MIT",
   "description": "Omarchy bar and window app: open todos from markdown and Almanac",

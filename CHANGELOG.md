@@ -1,3 +1,7 @@
+0.44.0
+
+  Enlarge todo type
+
 0.43.0
 
   Pin chip font

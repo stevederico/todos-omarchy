@@ -14,7 +14,7 @@ BorderSurface {
   property color foreground: Color.foreground
   property string fontFamily: "JetBrainsMono Nerd Font"
   property int fontWeight: 700
-  property real fontSize: iconText !== "" ? Style.font.icon : Style.font.caption
+  property real fontSize: iconText !== "" ? 18 : 16
   property real horizontalPadding: Style.spacing.controlPaddingX
 
   signal clicked()
@@ -23,7 +23,7 @@ BorderSurface {
   implicitWidth: iconText !== ""
     ? height
     : (label.implicitWidth + horizontalPadding * 2)
-  implicitHeight: Style.spacing.controlHeight
+  implicitHeight: Math.max(Style.spacing.controlHeight, Math.round(fontSize + 14))
   radius: Style.cornerRadius
 
   readonly property bool hot: mouse.containsMouse

@@ -171,7 +171,7 @@ Item {
       text: captureHint
       color: Qt.darker(Color.foreground, 1.55)
       font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: Style.font.body
+      font.pixelSize: 16
       font.weight: 700
     }
   }

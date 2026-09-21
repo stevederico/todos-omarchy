@@ -20,6 +20,8 @@ Item {
   property color dim: Qt.darker(foreground, 1.55)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property int fontWeight: 700
+  property int fontSize: 16
+  property int iconSize: 18
 
   signal completeClicked()
   signal editRequested()
@@ -30,7 +32,7 @@ Item {
   signal dragUpdated(real globalY)
   signal dragFinished(real globalY)
 
-  readonly property real rowHeight: Math.max(Style.space(36), content.implicitHeight + Style.space(8))
+  readonly property real rowHeight: Math.max(Style.space(40), content.implicitHeight + Style.space(10))
   height: rowHeight
   implicitHeight: rowHeight
   opacity: dragging ? 0 : (item && item.isCompleted ? 0.75 : 1)
@@ -138,7 +140,7 @@ Item {
         text: item && item.isCompleted ? "󰄲" : "󰄱"
         color: item && item.isCompleted ? Color.accent : dim
         font.family: fontFamily
-        font.pixelSize: Style.font.icon
+        font.pixelSize: iconSize
         font.weight: fontWeight
         Layout.preferredWidth: Style.space(28)
         Layout.preferredHeight: Style.space(28)
@@ -173,7 +175,7 @@ Item {
           text: item ? item.text : ""
           color: item && item.isCompleted ? dim : foreground
           font.family: fontFamily
-          font.pixelSize: Style.font.body
+          font.pixelSize: fontSize
           font.weight: fontWeight
           font.strikeout: item && item.isCompleted
           wrapMode: Text.Wrap
@@ -191,6 +193,7 @@ Item {
           text: row.draft
           foreground: row.foreground
           font.family: row.fontFamily
+          font.pixelSize: row.fontSize
           font.weight: row.fontWeight
           onAccepted: row.editAccepted(text)
           Keys.onEscapePressed: row.editCancelled()

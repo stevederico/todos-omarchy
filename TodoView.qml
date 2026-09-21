@@ -87,6 +87,10 @@ Item {
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
   readonly property int fontWeight: 700
+  readonly property int fontBody: 16
+  readonly property int fontCaption: 13
+  readonly property int fontIcon: 18
+  readonly property int chipHeight: Math.max(Style.spacing.controlHeight, 36)
   readonly property var filtered: Doc.filterSections(sections, query, showCompleted)
   readonly property bool fieldFocused: addField.activeFocus || listPathField.activeFocus || filterField.activeFocus || renameField.activeFocus || editingId !== ""
   readonly property string changelogPath: filePath !== "" ? dirname(filePath) + "/CHANGELOG.md" : ""
@@ -1104,7 +1108,7 @@ Item {
           Row {
             id: headerRow
             width: parent.width
-            height: Style.spacing.controlHeight
+            height: root.chipHeight
             spacing: Style.space(8)
 
             Flickable {
@@ -1179,6 +1183,7 @@ Item {
             text: root.newTodoText
             foreground: root.foreground
             font.family: root.fontFamily
+            font.pixelSize: root.fontBody
             font.weight: root.fontWeight
             onTextChanged: root.newTodoText = text
             onAccepted: root.submitNewTodo()
@@ -1196,6 +1201,7 @@ Item {
             text: root.addListPath
             foreground: root.foreground
             font.family: root.fontFamily
+            font.pixelSize: root.fontBody
             font.weight: root.fontWeight
             onTextChanged: root.addListPath = text
             onAccepted: root.submitAddList()
@@ -1213,6 +1219,7 @@ Item {
             text: root.renameText
             foreground: root.foreground
             font.family: root.fontFamily
+            font.pixelSize: root.fontBody
             font.weight: root.fontWeight
             onAccepted: {
               root.renameSource(root.renameID, text)
@@ -1257,6 +1264,7 @@ Item {
                   text: sectionCol.modelData.title
                   foreground: root.foreground
                   fontFamily: root.fontFamily
+                  fontSize: root.fontCaption
                   font.weight: root.fontWeight
                   leftPadding: Style.space(12)
                   topPadding: Style.space(12)
@@ -1285,6 +1293,8 @@ Item {
                     dim: root.dim
                     fontFamily: root.fontFamily
                     fontWeight: root.fontWeight
+                    fontSize: root.fontBody
+                    iconSize: root.fontIcon
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
@@ -1325,6 +1335,8 @@ Item {
                     dim: root.dim
                     fontFamily: root.fontFamily
                     fontWeight: root.fontWeight
+                    fontSize: root.fontBody
+                    iconSize: root.fontIcon
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
@@ -1351,7 +1363,7 @@ Item {
               text: root.trim(root.query).length > 0 ? "No matches" : (root.isAlmanac ? "No open Almanac todos" : "No open todos in this file")
               color: root.dim
               font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fontBody
               font.weight: root.fontWeight
             }
           }
@@ -1407,7 +1419,7 @@ Item {
               text: "󰄱"
               color: root.dim
               font.family: root.fontFamily
-              font.pixelSize: Style.font.icon
+              font.pixelSize: root.fontIcon
               font.weight: root.fontWeight
               width: Style.space(28)
               horizontalAlignment: Text.AlignHCenter
@@ -1419,7 +1431,7 @@ Item {
               text: root.dragGhostText
               color: root.foreground
               font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.fontBody
               font.weight: root.fontWeight
               wrapMode: Text.Wrap
               maximumLineCount: 8
@@ -1443,6 +1455,7 @@ Item {
             text: root.query
             foreground: root.foreground
             font.family: root.fontFamily
+            font.pixelSize: root.fontBody
             font.weight: root.fontWeight
             onTextChanged: root.query = text
             Keys.onEscapePressed: {
@@ -1453,7 +1466,7 @@ Item {
 
           Item {
             width: parent.width
-            height: Style.spacing.controlHeight
+            height: root.chipHeight
 
             Row {
               id: footerActions
@@ -1553,7 +1566,7 @@ Item {
                   text: root.lastError !== "" ? root.lastError : root.lastStatus
                   color: root.lastError !== "" ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
                   font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: root.fontCaption
                   font.weight: root.fontWeight
                   wrapMode: Text.NoWrap
                   elide: Text.ElideRight
@@ -1564,7 +1577,7 @@ Item {
                   text: root.appVersion
                   color: root.dim
                   font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: root.fontCaption
                   font.weight: root.fontWeight
                 }
               }
