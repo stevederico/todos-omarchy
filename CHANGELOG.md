@@ -1,3 +1,7 @@
+0.43.0
+
+  Pin chip font
+
 0.42.0
 
   Pin grok font
