@@ -1,3 +1,7 @@
+0.49.0
+
+  Fix overlapping todo rows
+
 0.48.0
 
   Write via POST

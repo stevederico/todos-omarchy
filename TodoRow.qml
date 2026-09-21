@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
 
@@ -32,9 +31,14 @@ Item {
   signal dragUpdated(real globalY)
   signal dragFinished(real globalY)
 
-  readonly property real rowHeight: Math.max(Style.space(40), content.implicitHeight + Style.space(10))
-  height: rowHeight
-  implicitHeight: rowHeight
+  readonly property int pad: 10
+  readonly property int iconBox: Math.max(iconSize, 22)
+  readonly property real labelHeight: {
+    if (row.editing) return Math.max(fontSize, editField.implicitHeight)
+    return Math.max(fontSize, itemLabel.implicitHeight)
+  }
+  implicitHeight: Math.max(iconBox, labelHeight) + pad * 2
+  height: implicitHeight
   opacity: dragging ? 0 : (item && item.isCompleted ? 0.75 : 1)
   z: dragging ? 0 : 1
 
@@ -63,7 +67,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    anchors.margins: Style.space(2)
+    anchors.margins: 2
     radius: Style.cornerRadius
     color: row.foreground
     opacity: dragArea.containsMouse && !row.dragging && !row.listDragging ? Style.hoverFillAlpha : 0
@@ -125,81 +129,77 @@ Item {
       if (moving) row.dragFinished(originGlobalY)
       moving = false
     }
+  }
 
-    RowLayout {
-      id: content
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.leftMargin: Style.space(8) + Math.min(item && item.indent ? item.indent : 0, 8) * 4
-      anchors.rightMargin: Style.space(8)
-      spacing: Style.space(8)
+  Item {
+    id: checkBox
+    width: iconBox
+    height: iconBox
+    anchors.left: parent.left
+    anchors.leftMargin: 8 + Math.min(item && item.indent ? item.indent : 0, 8) * 4
+    anchors.verticalCenter: parent.verticalCenter
 
-      Text {
-        id: checkIcon
-        text: item && item.isCompleted ? "󰄲" : "󰄱"
-        color: item && item.isCompleted ? Color.accent : dim
-        font.family: fontFamily
-        font.pixelSize: iconSize
-        font.weight: fontWeight
-        Layout.preferredWidth: Style.space(28)
-        Layout.preferredHeight: Style.space(28)
-        Layout.alignment: Qt.AlignVCenter
-        verticalAlignment: Text.AlignVCenter
-        horizontalAlignment: Text.AlignHCenter
-        scale: checkHit.pressed ? 0.82 : 1
-        Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
-
-        MouseArea {
-          id: checkHit
-          anchors.fill: parent
-          anchors.margins: -Style.space(4)
-          cursorShape: Qt.PointingHandCursor
-          preventStealing: true
-          onPressed: dragArea.pressOnCheck = true
-          onClicked: row.completeClicked()
-        }
-      }
-
-      Item {
-        Layout.fillWidth: true
-        Layout.alignment: Qt.AlignVCenter
-        Layout.preferredHeight: row.editing ? editField.implicitHeight : Math.max(Style.space(28), itemLabel.implicitHeight)
-
-        Text {
-          id: itemLabel
-          visible: !row.editing
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          text: item ? item.text : ""
-          color: item && item.isCompleted ? dim : foreground
-          font.family: fontFamily
-          font.pixelSize: fontSize
-          font.weight: fontWeight
-          font.strikeout: item && item.isCompleted
-          wrapMode: Text.Wrap
-          elide: Text.ElideNone
-          maximumLineCount: 24
-          verticalAlignment: Text.AlignVCenter
-        }
-
-        TextField {
-          id: editField
-          visible: row.editing
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          text: row.draft
-          foreground: row.foreground
-          font.family: row.fontFamily
-          font.pixelSize: row.fontSize
-          font.weight: row.fontWeight
-          onAccepted: row.editAccepted(text)
-          Keys.onEscapePressed: row.editCancelled()
-          onVisibleChanged: if (visible) forceActiveFocus()
-        }
-      }
+    Text {
+      id: checkIcon
+      anchors.centerIn: parent
+      text: item && item.isCompleted ? "󰄲" : "󰄱"
+      color: item && item.isCompleted ? Color.accent : dim
+      font.family: fontFamily
+      font.pixelSize: iconSize
+      font.weight: fontWeight
+      font.bold: true
+      scale: checkHit.pressed ? 0.82 : 1
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
     }
+
+    MouseArea {
+      id: checkHit
+      anchors.fill: parent
+      anchors.margins: -4
+      z: 3
+      cursorShape: Qt.PointingHandCursor
+      preventStealing: true
+      onPressed: dragArea.pressOnCheck = true
+      onClicked: row.completeClicked()
+    }
+  }
+
+  Text {
+    id: itemLabel
+    visible: !row.editing
+    anchors.left: checkBox.right
+    anchors.leftMargin: 8
+    anchors.right: parent.right
+    anchors.rightMargin: 8
+    anchors.verticalCenter: parent.verticalCenter
+    text: item ? item.text : ""
+    color: item && item.isCompleted ? dim : foreground
+    font.family: fontFamily
+    font.pixelSize: fontSize
+    font.weight: fontWeight
+    font.bold: true
+    font.strikeout: item && item.isCompleted
+    wrapMode: Text.Wrap
+    elide: Text.ElideNone
+    maximumLineCount: 24
+    verticalAlignment: Text.AlignVCenter
+  }
+
+  TextField {
+    id: editField
+    visible: row.editing
+    anchors.left: checkBox.right
+    anchors.leftMargin: 8
+    anchors.right: parent.right
+    anchors.rightMargin: 8
+    anchors.verticalCenter: parent.verticalCenter
+    text: row.draft
+    foreground: row.foreground
+    font.family: row.fontFamily
+    font.pixelSize: row.fontSize
+    font.weight: row.fontWeight
+    onAccepted: row.editAccepted(text)
+    Keys.onEscapePressed: row.editCancelled()
+    onVisibleChanged: if (visible) forceActiveFocus()
   }
 }
