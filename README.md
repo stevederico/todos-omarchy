@@ -5,7 +5,7 @@ Omarchy bar **and window** app (`dottie-todos-omarchy`) for open items in plain 
 ## What it does
 
 - Bar icon with the open-item count; click toggles a floating window (same as Almanac Calendar)
-- App launcher / Omarchy menu **Dottie-Todos** opens the same window
+- Omarchy menu **Dottie-Todos** opens the same window
 - The window floats so it does not take over a scrolling-layout column
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
 - Almanac tab when `~/.config/almanac/hosted-calendars.json` exists (same write key as the calendar). Completes, edits, and deletes over HTTP. No git.
@@ -43,16 +43,10 @@ omarchy plugin validate "$PLUGIN_DIR"
 omarchy plugin enable "$PLUGIN_ID" --section right --before omarchy.clock
 ```
 
-Open or toggle the window (app launcher, menu, or the bar icon):
+Open or toggle the window (menu or the bar icon):
 
 ```sh
 omarchy-shell shell toggle sd.dottie-todos-omarchy
-```
-
-To show it in the application launcher:
-
-```sh
-cp extra/sd.dottie-todos-omarchy.desktop ~/.local/share/applications/
 ```
 
 Middle-click the bar icon to reload. Escape or the bar icon dismisses the window.

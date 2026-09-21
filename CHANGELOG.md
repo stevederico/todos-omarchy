@@ -1,3 +1,7 @@
+0.53.0
+
+  Drop duplicate desktop entry
+
 0.52.0
 
   Stabilize complete ids
