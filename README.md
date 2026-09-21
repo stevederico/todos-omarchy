@@ -1,6 +1,6 @@
 # todo-omarchy
 
-Omarchy bar **and window** app for open items in plain markdown todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
+Omarchy bar **and window** app for open items in plain markdown todos and [Almanac](https://almanac.dottie.ai) hosted todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
 
 ## What it does
 
@@ -8,8 +8,9 @@ Omarchy bar **and window** app for open items in plain markdown todos. Linux por
 - App launcher / Omarchy menu **Todos** opens the same window
 - The window floats so it does not take over a scrolling-layout column
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
-- **+** tab after the last list takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`)
-- Right-click tab → Rename / Reveal / Remove
+- Almanac tab when `~/.config/almanac/hosted-calendars.json` exists (same write key as the calendar). Completes, edits, and deletes over HTTP. No git.
+- **+** tab after the last list takes a path to another `.md` (e.g. `~/books.md`, `~/marketing/todo.md`) or `almanac` / `almanac:cal_…`
+- Right-click tab → Rename / Reveal / Remove (Reveal is markdown only)
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)
 - Capture box: `omarchy-shell shell call sd.todo-omarchy capture {}` — large centered field; Enter adds one item to the active list, Esc closes
@@ -60,9 +61,13 @@ Optional menu row: merge `extra/omarchy-menu-todo.jsonc` into `~/.config/omarchy
 
 ## Format
 
+Markdown lists:
+
 - `- item` = open (shown)
 - `- [x] item` = completed (line moved to end of file; hidden until Show Completed)
 - `## Section` = group header
+
+Almanac lists use the hosted `/v1/c/{id}/todos` API. First tag becomes the section. Due date and priority stay on the server. Drag-reorder is markdown only (Almanac sorts open items, then due, then created).
 
 ## Tests
 

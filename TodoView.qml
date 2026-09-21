@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
+import "Almanac.js" as Almanac
 
 Item {
   id: root
@@ -19,7 +20,9 @@ Item {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/todo-omarchy"
   readonly property string sourcesPath: configDir + "/sources.json"
+  readonly property string calendarsPath: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/almanac/hosted-calendars.json"
   readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-commit-msg"
+  readonly property string almanacBodyPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/todo-omarchy-almanac-body.json"
 
   property var sources: []
   property string selectedID: ""
@@ -41,6 +44,11 @@ Item {
   property var pendingGit: null
   property var lastGitJob: null
   property bool notSynced: false
+  property var almanacCalendars: []
+  property bool almanacHidden: false
+  property bool sourcesReady: false
+  property int almanacToken: 0
+  property var pendingAlmanac: null
 
   property string query: ""
   property bool showCompleted: false
@@ -77,10 +85,16 @@ Item {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
-  readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  readonly property string fontFamily: "JetBrainsMono Nerd Font"
+  readonly property int fontWeight: 700
   readonly property var filtered: Doc.filterSections(sections, query, showCompleted)
   readonly property bool fieldFocused: addField.activeFocus || listPathField.activeFocus || filterField.activeFocus || renameField.activeFocus || editingId !== ""
   readonly property string changelogPath: filePath !== "" ? dirname(filePath) + "/CHANGELOG.md" : ""
+  readonly property bool isAlmanac: {
+    var src = null
+    for (var i = 0; i < sources.length; i++) if (sources[i].id === selectedID) src = sources[i]
+    return !!(src && Almanac.isAlmanacSource(src))
+  }
 
   function trim(s) {
     return String(s || "").replace(/^\s+|\s+$/g, "")
@@ -135,8 +149,36 @@ Item {
 
   function persistSources() {
     mkdirProc.running = true
-    var payload = { sources: sources, selectedID: selectedID }
+    var stored = []
+    for (var i = 0; i < sources.length; i++) stored.push(serializeSource(sources[i]))
+    var payload = { sources: stored, selectedID: selectedID, almanacHidden: almanacHidden }
     sourcesFile.setText(JSON.stringify(payload, null, 2) + "\n")
+  }
+
+  function serializeSource(src) {
+    if (Almanac.isAlmanacSource(src)) {
+      return {
+        id: src.id,
+        kind: "almanac",
+        title: src.title || "Almanac",
+        calendarId: Almanac.calendarIdOf(src)
+      }
+    }
+    return { id: src.id, title: src.title, path: src.path }
+  }
+
+  function sourceTooltip(src) {
+    if (!src) return ""
+    if (Almanac.isAlmanacSource(src)) return "Almanac · " + Almanac.calendarIdOf(src)
+    return src.path || ""
+  }
+
+  function maybeInsertAlmanac() {
+    if (!sourcesReady || almanacHidden) return
+    var next = Almanac.ensureSource(sources, almanacCalendars, newId)
+    if (next.length === sources.length) return
+    sources = next
+    persistSources()
   }
 
   function pluginFilePath(name) {
@@ -158,7 +200,7 @@ Item {
   }
 
   function schedulePull(force) {
-    if (filePath === "") return
+    if (isAlmanac || filePath === "") return
     if (pullInFlight) return
     if (isBusy) return
     var dir = dirname(filePath)
@@ -179,6 +221,10 @@ Item {
   function refresh() {
     notSynced = false
     lastError = ""
+    if (isAlmanac) {
+      almanacReload()
+      return
+    }
     todoFile.reload()
     schedulePull(true)
   }
@@ -200,36 +246,64 @@ Item {
   function loadSources(raw) {
     var parsed = null
     try { parsed = JSON.parse(raw) } catch (e) { parsed = null }
+    almanacHidden = !!(parsed && parsed.almanacHidden)
     var next = []
     if (parsed && parsed.sources && parsed.sources.length) {
       for (var i = 0; i < parsed.sources.length; i++) {
         var src = parsed.sources[i]
-        if (!src || !src.path) continue
+        if (!src) continue
+        if (Almanac.isAlmanacSource(src)) {
+          next.push({
+            id: src.id || newId(),
+            kind: "almanac",
+            title: src.title || "Almanac",
+            calendarId: Almanac.calendarIdOf(src),
+            path: ""
+          })
+          continue
+        }
+        if (!src.path) continue
         next.push({
           id: src.id || newId(),
+          kind: "file",
           title: src.title || Doc.defaultTitle(src.path),
           path: expandPath(src.path)
         })
       }
     }
     if (next.length === 0) next = [defaultSource()]
+    var before = next.length
+    if (!almanacHidden) next = Almanac.ensureSource(next, almanacCalendars, newId)
     sources = next
+    sourcesReady = true
     var sel = parsed && parsed.selectedID ? String(parsed.selectedID) : ""
     var ok = false
     for (var j = 0; j < sources.length; j++) if (sources[j].id === sel) ok = true
     selectedID = ok ? sel : sources[0].id
     applySelection()
+    if (next.length !== before) persistSources()
   }
 
   function applySelection() {
     var src = selectedSource()
     if (!src) return
-    filePath = src.path
     lastError = ""
     lastStatus = ""
     query = ""
     editingId = ""
     ctx = null
+    if (Almanac.isAlmanacSource(src)) {
+      filePath = ""
+      lines = []
+      fileMissing = false
+      sections = []
+      openCount = 0
+      completedCount = 0
+      almanacReload()
+      return
+    }
+    isBusy = false
+    filePath = src.path
     todoFile.reload()
     changelogFile.reload()
   }
@@ -242,6 +316,10 @@ Item {
   }
 
   function addSource(path) {
+    if (Almanac.isAlmanacPath(path)) {
+      addAlmanacSource(path)
+      return
+    }
     var resolved = expandPath(path)
     if (resolved.length === 0) return
     for (var i = 0; i < sources.length; i++) {
@@ -250,7 +328,28 @@ Item {
         return
       }
     }
-    var src = { id: newId(), title: Doc.defaultTitle(resolved), path: resolved }
+    var src = { id: newId(), kind: "file", title: Doc.defaultTitle(resolved), path: resolved }
+    sources = sources.concat([src])
+    selectedID = src.id
+    persistSources()
+    applySelection()
+  }
+
+  function addAlmanacSource(path) {
+    var cal = Almanac.resolveCalendar(almanacCalendars, Almanac.pathCalendarId(path))
+    if (!cal) {
+      lastError = "No Almanac calendar"
+      return
+    }
+    almanacHidden = false
+    for (var i = 0; i < sources.length; i++) {
+      if (Almanac.isAlmanacSource(sources[i]) && Almanac.calendarIdOf(sources[i]) === cal.id) {
+        selectSource(sources[i].id)
+        persistSources()
+        return
+      }
+    }
+    var src = Almanac.makeSource(cal, newId())
     sources = sources.concat([src])
     selectedID = src.id
     persistSources()
@@ -261,11 +360,13 @@ Item {
     if (sources.length <= 1) return
     var next = []
     var idx = -1
+    var removed = null
     for (var i = 0; i < sources.length; i++) {
-      if (sources[i].id === id) { idx = i; continue }
+      if (sources[i].id === id) { idx = i; removed = sources[i]; continue }
       next.push(sources[i])
     }
     if (idx < 0 || next.length === 0) return
+    if (removed && Almanac.isAlmanacSource(removed)) almanacHidden = true
     sources = next
     if (selectedID === id) selectedID = next[Math.min(idx, next.length - 1)].id
     persistSources()
@@ -278,10 +379,100 @@ Item {
     var next = []
     for (var i = 0; i < sources.length; i++) {
       var src = sources[i]
-      next.push(src.id === id ? { id: src.id, title: name, path: src.path } : src)
+      if (src.id !== id) { next.push(src); continue }
+      next.push({
+        id: src.id,
+        kind: src.kind || (Almanac.isAlmanacSource(src) ? "almanac" : "file"),
+        title: name,
+        path: src.path || "",
+        calendarId: src.calendarId || ""
+      })
     }
     sources = next
     persistSources()
+  }
+
+  function almanacCalendarId() {
+    var src = selectedSource()
+    return src ? Almanac.calendarIdOf(src) : ""
+  }
+
+  function almanacReload() {
+    if (!isAlmanac) return
+    var cal = almanacCalendarId()
+    if (!cal) {
+      lastError = "No Almanac calendar"
+      applyAlmanacSections([])
+      return
+    }
+    almanacToken += 1
+    isBusy = true
+    lastError = ""
+    almanacRemote.list(cal, almanacToken)
+  }
+
+  function applyAlmanacSections(next) {
+    sections = next
+    openCount = Almanac.countOpen(next)
+    completedCount = Almanac.countCompleted(next)
+    fileMissing = false
+  }
+
+  function applyAlmanacList(body) {
+    applyAlmanacSections(Almanac.parseTodos(body))
+  }
+
+  function startAlmanacWrite(op, payload, status) {
+    if (isBusy) return
+    var cal = almanacCalendarId()
+    if (!cal) {
+      lastError = "No Almanac calendar"
+      return
+    }
+    isBusy = true
+    lastError = ""
+    if (status) lastStatus = status
+    almanacToken += 1
+    pendingAlmanac = { op: op, cal: cal, token: almanacToken, payload: payload || {} }
+    if (op === "delete") {
+      almanacRemote.remove(cal, payload.uid, almanacToken)
+      pendingAlmanac = null
+      return
+    }
+    var body = payload.body || {}
+    var wire = { _n: almanacToken }
+    if (body.title !== undefined) wire.title = body.title
+    if (body.done !== undefined) wire.done = body.done
+    almanacBodyFile.setText(JSON.stringify(wire) + "\n")
+  }
+
+  function startPendingAlmanac() {
+    var job = pendingAlmanac
+    pendingAlmanac = null
+    if (!job) return
+    if (job.op === "post") almanacRemote.post(job.cal, almanacBodyPath, job.token)
+    else if (job.op === "patch") almanacRemote.patch(job.cal, job.payload.uid, almanacBodyPath, job.token)
+  }
+
+  function failPendingAlmanac(err) {
+    pendingAlmanac = null
+    lastError = err || "Could not write Almanac request"
+    isBusy = false
+  }
+
+  function onAlmanacFinished(op, ok, body, token) {
+    if (token !== almanacToken) return
+    isBusy = false
+    if (!ok) {
+      lastError = Almanac.errorMessage(body)
+      return
+    }
+    lastError = ""
+    if (op === "list") {
+      applyAlmanacList(body)
+      return
+    }
+    almanacReload()
   }
 
   function save(status, message, extraFiles) {
@@ -346,10 +537,18 @@ Item {
   }
 
   function addTodo(text) {
+    if (isAlmanac) {
+      startAlmanacWrite("post", { body: { title: trim(text) } }, "Added")
+      return
+    }
     mutate(function () { return Doc.addItem(lines, text) }, "Added", "Add", text)
   }
 
   function complete(item) {
+    if (isAlmanac) {
+      startAlmanacWrite("patch", { uid: item.uid || item.id, body: { done: !item.isCompleted } }, item.isCompleted ? "Reopened" : "Completed")
+      return
+    }
     mutate(function () {
       var result = Doc.toggleComplete(lines, item.text, item.section, item.lineIndex, item.isCompleted)
       var extra = []
@@ -365,22 +564,32 @@ Item {
   }
 
   function saveEdit(item, text) {
+    if (isAlmanac) {
+      startAlmanacWrite("patch", { uid: item.uid || item.id, body: { title: trim(text) } }, "Edited")
+      return
+    }
     mutate(function () {
       return Doc.updateItem(lines, item.text, item.section, item.lineIndex, item.isCompleted, text)
     }, "Edited", "Edit", text)
   }
 
   function deleteTodo(item) {
+    if (isAlmanac) {
+      startAlmanacWrite("delete", { uid: item.uid || item.id }, "Deleted")
+      return
+    }
     mutate(function () {
       return Doc.deleteItem(lines, item.text, item.section, item.lineIndex, item.isCompleted)
     }, "Deleted", "Delete", item.text)
   }
 
   function moveItem(item, direction) {
+    if (isAlmanac) return
     mutate(function () { return Doc.moveOpenItem(lines, item, direction) }, "Reordered", "Reorder", item.section)
   }
 
   function reorderOpen(item, destIndex) {
+    if (isAlmanac) return
     if (!item || item.isCompleted) return
     if (trim(query).length > 0) return
     var open = []
@@ -515,15 +724,18 @@ Item {
   }
 
   function reload() {
-    todoFile.reload()
+    if (isAlmanac) almanacReload()
+    else todoFile.reload()
   }
 
   function openInEditor() {
-    if (filePath !== "") Util.execArgv(["omarchy-launch-editor", filePath])
+    if (isAlmanac || filePath === "") return
+    Util.execArgv(["omarchy-launch-editor", filePath])
   }
 
   function reveal() {
-    if (filePath !== "") Util.execArgv(["xdg-open", dirname(filePath)])
+    if (isAlmanac || filePath === "") return
+    Util.execArgv(["xdg-open", dirname(filePath)])
   }
 
   function copyText(text) {
@@ -564,7 +776,8 @@ Item {
   function ctxActions() {
     if (!ctx) return []
     if (ctx.kind === "tab") {
-      var rows = ["Rename…", "Reveal"]
+      var rows = ["Rename…"]
+      if (ctx.source && !Almanac.isAlmanacSource(ctx.source)) rows.push("Reveal")
       if (sources.length > 1) rows.push("Remove Tab")
       return rows
     }
@@ -793,9 +1006,39 @@ Item {
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onFileChanged: if (!root.suppressWatch) todoFile.reload()
-    onLoaded: if (!root.suppressWatch) root.applyText(text())
-    onLoadFailed: root.applyMissing()
+    onFileChanged: if (!root.suppressWatch && !root.isAlmanac) todoFile.reload()
+    onLoaded: if (!root.suppressWatch && !root.isAlmanac) root.applyText(text())
+    onLoadFailed: if (!root.isAlmanac && root.filePath !== "") root.applyMissing()
+  }
+
+  FileView {
+    id: calendarsFile
+    path: root.calendarsPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      root.almanacCalendars = Almanac.parseCalendars(text())
+      root.maybeInsertAlmanac()
+    }
+    onLoadFailed: root.almanacCalendars = []
+  }
+
+  FileView {
+    id: almanacBodyFile
+    path: root.almanacBodyPath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+    onSaved: root.startPendingAlmanac()
+    onSaveFailed: root.failPendingAlmanac("Could not write Almanac request")
+  }
+
+  AlmanacRemote {
+    id: almanacRemote
+    onFinished: function (op, ok, body, token) {
+      root.onAlmanacFinished(op, ok, body, token)
+    }
   }
 
   FileView {
@@ -889,7 +1132,7 @@ Item {
                     selected: modelData.id === root.selectedID
                     foreground: root.foreground
                     fontFamily: root.fontFamily
-                    tooltipText: modelData.path
+                    tooltipText: root.sourceTooltip(modelData)
                     onClicked: root.selectSource(modelData.id)
                     onRightClicked: root.openCtxAtItem({ kind: "tab", source: modelData }, tabChip)
                   }
@@ -901,7 +1144,7 @@ Item {
                   selected: root.showAddList
                   foreground: root.foreground
                   fontFamily: root.fontFamily
-                  tooltipText: "Add another markdown todo file"
+                  tooltipText: "Add a markdown file or Almanac"
                   onClicked: {
                     root.showAddList = !root.showAddList
                     root.showAddField = false
@@ -935,6 +1178,8 @@ Item {
             placeholderText: "New To-Do"
             text: root.newTodoText
             foreground: root.foreground
+            font.family: root.fontFamily
+            font.weight: root.fontWeight
             onTextChanged: root.newTodoText = text
             onAccepted: root.submitNewTodo()
             Keys.onEscapePressed: {
@@ -947,9 +1192,11 @@ Item {
             id: listPathField
             visible: root.showAddList
             width: parent.width
-            placeholderText: "Path to .md — e.g. ~/books.md"
+            placeholderText: "Path to .md or almanac"
             text: root.addListPath
             foreground: root.foreground
+            font.family: root.fontFamily
+            font.weight: root.fontWeight
             onTextChanged: root.addListPath = text
             onAccepted: root.submitAddList()
             Keys.onEscapePressed: {
@@ -965,6 +1212,8 @@ Item {
             placeholderText: "Tab name"
             text: root.renameText
             foreground: root.foreground
+            font.family: root.fontFamily
+            font.weight: root.fontWeight
             onAccepted: {
               root.renameSource(root.renameID, text)
               root.renameID = ""
@@ -1007,6 +1256,8 @@ Item {
                   visible: sectionCol.modelData.title !== "To-Dos"
                   text: sectionCol.modelData.title
                   foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  font.weight: root.fontWeight
                   leftPadding: Style.space(12)
                   topPadding: Style.space(12)
                   bottomPadding: Style.space(4)
@@ -1023,7 +1274,7 @@ Item {
                     item: modelData
                     openIndex: index
                     striped: index % 2 === 1
-                    draggable: !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
+                    draggable: !root.isAlmanac && !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
                     dragging: root.rowDragging && root.dragItem && root.dragItem.id === modelData.id
                     listDragging: root.rowDragging
                     animateShift: root.animateShift
@@ -1033,6 +1284,7 @@ Item {
                     foreground: root.foreground
                     dim: root.dim
                     fontFamily: root.fontFamily
+                    fontWeight: root.fontWeight
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
@@ -1072,6 +1324,7 @@ Item {
                     foreground: root.foreground
                     dim: root.dim
                     fontFamily: root.fontFamily
+                    fontWeight: root.fontWeight
                     onCompleteClicked: root.complete(modelData)
                     onEditRequested: {
                       root.editingId = modelData.id
@@ -1095,10 +1348,11 @@ Item {
               width: parent.width
               topPadding: Style.space(40)
               horizontalAlignment: Text.AlignHCenter
-              text: root.trim(root.query).length > 0 ? "No matches" : "No open todos in this file"
+              text: root.trim(root.query).length > 0 ? "No matches" : (root.isAlmanac ? "No open Almanac todos" : "No open todos in this file")
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
+              font.weight: root.fontWeight
             }
           }
         }
@@ -1154,6 +1408,7 @@ Item {
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.icon
+              font.weight: root.fontWeight
               width: Style.space(28)
               horizontalAlignment: Text.AlignHCenter
             }
@@ -1165,6 +1420,7 @@ Item {
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
+              font.weight: root.fontWeight
               wrapMode: Text.Wrap
               maximumLineCount: 8
               elide: Text.ElideNone
@@ -1186,6 +1442,8 @@ Item {
             placeholderText: "Filter"
             text: root.query
             foreground: root.foreground
+            font.family: root.fontFamily
+            font.weight: root.fontWeight
             onTextChanged: root.query = text
             Keys.onEscapePressed: {
               root.showFilter = false
@@ -1232,6 +1490,7 @@ Item {
                 onClicked: root.refresh()
               }
               HeaderButton {
+                visible: !root.isAlmanac
                 height: parent.height
                 iconText: "󰈙"
                 tooltipText: "Open file"
@@ -1295,6 +1554,7 @@ Item {
                   color: root.lastError !== "" ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
+                  font.weight: root.fontWeight
                   wrapMode: Text.NoWrap
                   elide: Text.ElideRight
                 }
@@ -1305,6 +1565,7 @@ Item {
                   color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
+                  font.weight: root.fontWeight
                 }
               }
             }

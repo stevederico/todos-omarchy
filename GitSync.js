@@ -12,7 +12,7 @@ function parseSourceDirs(raw) {
   var out = []
   for (var i = 0; i < sources.length; i++) {
     var src = sources[i]
-    if (!src || !src.path) continue
+    if (!src || src.kind === "almanac" || !src.path) continue
     var dir = dirname(src.path)
     if (!dir || seen[dir]) continue
     seen[dir] = true

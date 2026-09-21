@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "sd.todo-omarchy",
   "name": "Todo Omarchy",
-  "version": "0.40.0",
+  "version": "0.41.0",
   "author": "sd",
   "license": "MIT",
-  "description": "Omarchy bar and window app: open todos from markdown (- item lines)",
+  "description": "Omarchy bar and window app: open todos from markdown and Almanac",
   "kinds": [
     "bar-widget",
     "panel"
@@ -17,7 +17,7 @@
   },
   "barWidget": {
     "displayName": "Todo Omarchy",
-    "description": "Open markdown to-dos from the Omarchy bar, with git commit and push",
+    "description": "Open markdown and Almanac to-dos from the Omarchy bar",
     "category": "Productivity",
     "aliases": [
       "todo",

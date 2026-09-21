@@ -15,6 +15,16 @@ test("parseSourceDirs unique repo roots from tab paths", () => {
   assert.deepEqual(dirs, ["/home/me/Todos", "/home/me/other"])
 })
 
+test("parseSourceDirs skips Almanac tabs", () => {
+  const dirs = GitSync.parseSourceDirs(JSON.stringify({
+    sources: [
+      { id: "a", kind: "almanac", calendarId: "cal_1" },
+      { id: "b", path: "/home/me/Todos/todos.md" }
+    ]
+  }))
+  assert.deepEqual(dirs, ["/home/me/Todos"])
+})
+
 test("parseSourceDirs ignores bad payloads", () => {
   assert.deepEqual(GitSync.parseSourceDirs(""), [])
   assert.deepEqual(GitSync.parseSourceDirs("[]"), [])

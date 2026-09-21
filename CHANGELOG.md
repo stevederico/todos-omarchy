@@ -1,3 +1,7 @@
+0.41.0
+
+  Add Almanac todos
+
 0.40.0
 
   Add capture box
