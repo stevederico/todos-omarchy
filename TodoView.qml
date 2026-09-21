@@ -51,6 +51,7 @@ Item {
   property var almanacCalendars: []
   property bool almanacHidden: false
   property bool sourcesReady: false
+  property bool wantDefaultTab: true
   property int almanacToken: 0
   property var pendingAlmanac: null
   property bool completeAnimDone: true
@@ -300,9 +301,14 @@ Item {
     var sel = parsed && parsed.selectedID ? String(parsed.selectedID) : ""
     var ok = false
     for (var j = 0; j < sources.length; j++) if (sources[j].id === sel) ok = true
-    selectedID = ok ? sel : sources[0].id
+    if (wantDefaultTab) {
+      wantDefaultTab = false
+      selectedID = Almanac.defaultTabId(sources)
+    } else {
+      selectedID = ok ? sel : Almanac.defaultTabId(sources)
+    }
     applySelection()
-    if (next.length !== before) persistSources()
+    if (next.length !== before || selectedID !== sel) persistSources()
   }
 
   function applySelection() {
@@ -328,6 +334,15 @@ Item {
     filePath = src.path
     todoFile.reload()
     changelogFile.reload()
+  }
+
+  function selectDefaultTab() {
+    wantDefaultTab = true
+    if (!sourcesReady) return
+    var id = Almanac.defaultTabId(sources)
+    wantDefaultTab = false
+    if (!id || selectedID === id) return
+    selectSource(id)
   }
 
   function selectSource(id) {

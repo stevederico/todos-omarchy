@@ -1,3 +1,7 @@
+0.56.0
+
+  Default Almanac tab
+
 0.55.0
 
   Rename dottie-todo-omarchy

@@ -65,6 +65,14 @@ function makeSource(cal, id) {
   }
 }
 
+function defaultTabId(sources) {
+  var list = sources || []
+  for (var i = 0; i < list.length; i++) {
+    if (isAlmanacSource(list[i])) return list[i].id
+  }
+  return list.length ? list[0].id : ""
+}
+
 function ensureSource(sources, calendars, newIdFn) {
   var next = (sources || []).slice()
   for (var i = 0; i < next.length; i++) {
@@ -166,6 +174,7 @@ if (typeof module !== "undefined") {
     calendarIdOf: calendarIdOf,
     resolveCalendar: resolveCalendar,
     makeSource: makeSource,
+    defaultTabId: defaultTabId,
     ensureSource: ensureSource,
     tagTitle: tagTitle,
     sectionOf: sectionOf,

@@ -56,6 +56,16 @@ test("resolveCalendar matches id or first", () => {
   assert.equal(Almanac.resolveCalendar([], ""), null)
 })
 
+test("defaultTabId prefers the Almanac source", () => {
+  const sources = [
+    { id: "todos", path: "/tmp/todos.md" },
+    { id: "alm", kind: "almanac", calendarId: "cal_1" }
+  ]
+  assert.equal(Almanac.defaultTabId(sources), "alm")
+  assert.equal(Almanac.defaultTabId([{ id: "todos", path: "/tmp/todos.md" }]), "todos")
+  assert.equal(Almanac.defaultTabId([]), "")
+})
+
 test("ensureSource prepends Almanac once", () => {
   const files = [{ id: "s1", title: "Todos", path: "/tmp/todos.md" }]
   const cals = [{ id: "cal_1", name: "Almanac" }]

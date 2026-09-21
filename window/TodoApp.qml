@@ -18,6 +18,7 @@ Item {
   function open(payloadJson) {
     closingFromHost = false
     window.visible = true
+    if (view && view.selectDefaultTab) view.selectDefaultTab()
     if (view && view.reload) view.reload()
     Qt.callLater(function () { if (view) view.forceActiveFocus() })
   }
@@ -95,6 +96,7 @@ Item {
     onVisibleChanged: {
       root.syncRemote()
       if (visible) {
+        if (view && view.selectDefaultTab) view.selectDefaultTab()
         if (view && view.reload) view.reload()
         Qt.callLater(function () { if (view) view.forceActiveFocus() })
       } else if (!root.closingFromHost && root.shell && typeof root.shell.hide === "function") {
