@@ -1,3 +1,7 @@
+0.42.0
+
+  Pin grok font
+
 0.41.0
 
   Add Almanac todos

@@ -1,11 +1,11 @@
-# todo-omarchy
+# Dottie-Todos
 
-Omarchy bar **and window** app for open items in plain markdown todos and [Almanac](https://almanac.dottie.ai) hosted todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
+Omarchy bar **and window** app (`todo-omarchy`) for open items in plain markdown todos and [Almanac](https://almanac.dottie.ai) hosted todos. Linux port of [todo-bar](https://github.com/stevederico/todo-bar).
 
 ## What it does
 
 - Bar icon with the open-item count; click toggles a floating window (same as Almanac Calendar)
-- App launcher / Omarchy menu **Todos** opens the same window
+- App launcher / Omarchy menu **Dottie-Todos** opens the same window
 - The window floats so it does not take over a scrolling-layout column
 - Tabs for multiple files (default: `~/todos.md`, then `~/Documents/todos.md`)
 - Almanac tab when `~/.config/almanac/hosted-calendars.json` exists (same write key as the calendar). Completes, edits, and deletes over HTTP. No git.

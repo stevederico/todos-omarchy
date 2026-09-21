@@ -85,7 +85,7 @@ Item {
 
   FloatingWindow {
     id: window
-    title: "Todos"
+    title: "Dottie-Todos"
     visible: false
     color: Color.background
     implicitWidth: Style.space(520)
@@ -142,8 +142,9 @@ Item {
       anchors.bottomMargin: 64
       placeholderText: "New to-do"
       wrapMode: TextEdit.Wrap
-      font.family: Style.font.family
+      font.family: "JetBrainsMono Nerd Font"
       font.pixelSize: 32
+      font.weight: 700
       color: Color.foreground
       selectionColor: Color.accent
       selectedTextColor: Color.foreground
@@ -169,8 +170,9 @@ Item {
       anchors.margins: 28
       text: captureHint
       color: Qt.darker(Color.foreground, 1.55)
-      font.family: Style.font.family
+      font.family: "JetBrainsMono Nerd Font"
       font.pixelSize: Style.font.body
+      font.weight: 700
     }
   }
 

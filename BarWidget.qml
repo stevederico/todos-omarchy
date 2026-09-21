@@ -99,8 +99,9 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
+    fontFamily: "JetBrainsMono Nerd Font"
     text: "󰄬"
-    tooltipText: (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos")) + " · click for window"
+    tooltipText: "Dottie-Todos · " + (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos"))
 
     onPressed: function (b) {
       if (b === Qt.LeftButton || b === Qt.RightButton) root.toggleWindow()
