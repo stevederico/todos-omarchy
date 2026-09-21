@@ -1,3 +1,7 @@
+0.50.0
+
+  Uncover version in footer
+
 0.49.0
 
   Fix overlapping todo rows

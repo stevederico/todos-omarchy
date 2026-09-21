@@ -1580,17 +1580,20 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: root.fontCaption
                   font.weight: root.fontWeight
+                  font.bold: true
                   wrapMode: Text.NoWrap
                   elide: Text.ElideRight
                 }
 
-                CenteredLabel {
+                Text {
                   visible: root.appVersion !== ""
+                  anchors.verticalCenter: parent.verticalCenter
                   text: root.appVersion
                   color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: root.fontCaption
                   font.weight: root.fontWeight
+                  font.bold: true
                 }
               }
             }
