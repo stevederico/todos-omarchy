@@ -8,11 +8,11 @@ import "TodoStore.js" as Store
 // Checklist count for the bar. Click toggles the window app.
 BarWidget {
   id: root
-  moduleName: "sd.dottie-todos-omarchy"
+  moduleName: "sd.dottie-todo-omarchy"
 
   property int openCount: 0
   readonly property bool opened: false
-  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "") + "/.config/dottie-todos-omarchy")) + "/dottie-todos-omarchy-open-count"
+  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "") + "/.config/dottie-todo-omarchy")) + "/dottie-todo-omarchy-open-count"
 
   function applyCountText(raw) {
     var n = parseInt(String(raw || "0"), 10)
@@ -32,18 +32,18 @@ BarWidget {
   }
 
   function openWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.dottie-todos-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.dottie-todo-omarchy"])
   }
 
   function closeWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.dottie-todos-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.dottie-todo-omarchy"])
   }
 
   function toggleWindow() {
     if (root.clickLock) return
     root.clickLock = true
     clickLockTimer.restart()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.dottie-todos-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.dottie-todo-omarchy"])
   }
 
   function open() { root.openWindow() }
@@ -65,6 +65,17 @@ BarWidget {
   }
 
   IpcHandler {
+    target: "sd.dottie-todo-omarchy"
+
+    function refresh(): void { root.refresh() }
+    function open(): void { root.open() }
+    function close(): void { root.close() }
+    function show(): void { root.open() }
+    function hide(): void { root.close() }
+    function toggle(): void { root.toggle() }
+  }
+
+  IpcHandler {
     target: "sd.dottie-todos-omarchy"
 
     function refresh(): void { root.refresh() }
@@ -73,6 +84,10 @@ BarWidget {
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
+    function capture(arg: string): string {
+      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todo-omarchy", "capture", arg || "{}"])
+      return "ok"
+    }
   }
 
   IpcHandler {
@@ -85,7 +100,7 @@ BarWidget {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function capture(arg: string): string {
-      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todos-omarchy", "capture", arg || "{}"])
+      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todo-omarchy", "capture", arg || "{}"])
       return "ok"
     }
   }

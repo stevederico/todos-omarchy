@@ -1,3 +1,7 @@
+0.55.0
+
+  Rename dottie-todo-omarchy
+
 0.54.0
 
   Seal Almanac writes

@@ -2,7 +2,7 @@
 # Commit (and optionally push) listed files in their git repo.
 # The commit message is always read from a file with `git commit -F`.
 # Paths and the message never enter the script via interpolation.
-# Shares .git/dottie-todos-omarchy-sync.lock with git-pull.sh.
+# Shares .git/dottie-todo-omarchy-sync.lock with git-pull.sh.
 set -u
 export GIT_EDITOR=true
 export GIT_TERMINAL_PROMPT=0
@@ -77,7 +77,7 @@ for f in "$@"; do
 done
 (( ${#RELS[@]} > 0 )) || fail "no files"
 
-LOCK="$ROOT/.git/dottie-todos-omarchy-sync.lock"
+LOCK="$ROOT/.git/dottie-todo-omarchy-sync.lock"
 exec 9>"$LOCK" || fail "cannot lock"
 LOCK_WAIT=${TODO_OMARCHY_LOCK_WAIT:-25}
 if ! flock -w "$LOCK_WAIT" 9; then
@@ -92,8 +92,8 @@ cleanup() {
   [[ -n ${SNAP:-} && -d $SNAP ]] && rm -rf "$SNAP"
 }
 trap cleanup EXIT
-ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/dottie-todos-omarchy-push.XXXXXX") || fail "mktemp failed"
-SNAP=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/dottie-todos-omarchy-snap.XXXXXX") || fail "mktemp failed"
+ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/dottie-todo-omarchy-push.XXXXXX") || fail "mktemp failed"
+SNAP=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/dottie-todo-omarchy-snap.XXXXXX") || fail "mktemp failed"
 
 snapshot_rels() {
   local rel

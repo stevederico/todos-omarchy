@@ -62,7 +62,7 @@ if ! git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/nul
   exit 0
 fi
 
-LOCK="$ROOT/.git/dottie-todos-omarchy-sync.lock"
+LOCK="$ROOT/.git/dottie-todo-omarchy-sync.lock"
 exec 9>"$LOCK" || fail "cannot lock"
 LOCK_WAIT=${TODO_OMARCHY_LOCK_WAIT:-25}
 if ! flock -w "$LOCK_WAIT" 9; then
@@ -70,7 +70,7 @@ if ! flock -w "$LOCK_WAIT" 9; then
   exit 0
 fi
 
-ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/dottie-todos-omarchy-pull.XXXXXX") || fail "mktemp failed"
+ERR=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/dottie-todo-omarchy-pull.XXXXXX") || fail "mktemp failed"
 
 if ! timeout 20 git -C "$ROOT" fetch --quiet 2>"$ERR"; then
   echo FETCH_ERROR

@@ -47,9 +47,9 @@ function initRepo(root) {
 }
 
 function setupRemotePair() {
-  const local = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-pull-local-"))
-  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-pull-bare-"))
-  const other = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-pull-other-"))
+  const local = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-pull-local-"))
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-pull-bare-"))
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-pull-other-"))
   spawnSync("git", ["init", "--bare", "-b", "master", bare], { encoding: "utf8", env: gitEnv() })
   initRepo(local)
   sh(local, ["remote", "add", "origin", bare])
@@ -67,7 +67,7 @@ function cleanup(dirs) {
 
 test("BUSY when the pull lock is held", () => {
   const pair = setupRemotePair()
-  const lock = path.join(pair.local, ".git/dottie-todos-omarchy-sync.lock")
+  const lock = path.join(pair.local, ".git/dottie-todo-omarchy-sync.lock")
   const held = spawn("bash", ["-c", "exec 9>\"$1\"; flock 9; sleep 20", "lock", lock], {
     stdio: "ignore"
   })
@@ -91,7 +91,7 @@ test("missing --dir is a usage failure", () => {
 })
 
 test("non-git directory reports NOT_A_REPO", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-pull-none-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-pull-none-"))
   const result = runPull(dir)
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /NOT_A_REPO/)
@@ -99,7 +99,7 @@ test("non-git directory reports NOT_A_REPO", () => {
 })
 
 test("repo without upstream reports NO_UPSTREAM", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-pull-noremote-"))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-pull-noremote-"))
   initRepo(root)
   const result = runPull(root)
   assert.equal(result.status, 0, result.stderr)

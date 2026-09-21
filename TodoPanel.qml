@@ -5,8 +5,8 @@ import qs.Ui
 
 Panel {
   id: root
-  moduleName: "sd.dottie-todos-omarchy"
-  ipcTarget: "sd.dottie-todos-omarchy"
+  moduleName: "sd.dottie-todo-omarchy"
+  ipcTarget: "sd.dottie-todo-omarchy"
   manageIpc: false
 
   property var anchorItem: null
@@ -26,7 +26,7 @@ Panel {
       return
     }
     var sh = root.bar && root.bar.shell
-    if (sh && typeof sh.summon === "function") sh.summon("sd.dottie-todos-omarchy")
+    if (sh && typeof sh.summon === "function") sh.summon("sd.dottie-todo-omarchy")
   }
 
   function open() {

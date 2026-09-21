@@ -19,7 +19,7 @@ function sh(cwd, args, opts = {}) {
 }
 
 function setupRepo() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-git-"))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-git-"))
   sh(root, ["init", "-b", "master"])
   sh(root, ["config", "user.name", "Test"])
   sh(root, ["config", "user.email", "test@example.test"])
@@ -59,7 +59,7 @@ test("commit message with quotes and substitution is stored literally", () => {
 
 test("without --push the commit stays local even if a remote exists", () => {
   const root = setupRepo()
-  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-bare-"))
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-bare-"))
   spawnSync("git", ["init", "--bare", "-b", "master", bare], { encoding: "utf8" })
   sh(root, ["remote", "add", "origin", bare])
   sh(root, ["push", "-u", "origin", "master"])
@@ -103,8 +103,8 @@ function gitEnv() {
 
 function setupRemotePair() {
   const local = setupRepo()
-  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-sync-bare-"))
-  const other = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todos-omarchy-sync-other-"))
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-sync-bare-"))
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-sync-other-"))
   spawnSync("git", ["init", "--bare", "-b", "master", bare], { encoding: "utf8", env: gitEnv() })
   sh(local, ["remote", "add", "origin", bare])
   sh(local, ["push", "-u", "origin", "master"])
@@ -154,7 +154,7 @@ test("conflicting remote edit stays local and prints no git stderr", () => {
 
 test("BUSY when the sync lock is held", () => {
   const root = setupRepo()
-  const lock = path.join(root, ".git/dottie-todos-omarchy-sync.lock")
+  const lock = path.join(root, ".git/dottie-todo-omarchy-sync.lock")
   const held = spawn("bash", ["-c", "exec 9>\"$1\"; flock 9; sleep 20", "lock", lock], {
     stdio: "ignore"
   })
@@ -183,7 +183,7 @@ test("dirty extra file is left alone", () => {
 
 test("refuses files outside the git root", () => {
   const root = setupRepo()
-  const outside = path.join(os.tmpdir(), "dottie-todos-omarchy-outside.md")
+  const outside = path.join(os.tmpdir(), "dottie-todo-omarchy-outside.md")
   fs.writeFileSync(outside, "- nope\n")
   const msgFile = path.join(root, ".commit-msg")
   fs.writeFileSync(msgFile, "Add nope")

@@ -4,7 +4,7 @@ import Quickshell
 import qs.Commons
 
 // Normal Hyprland-tiled window. Summon with:
-//   omarchy-shell shell summon sd.dottie-todos-omarchy
+//   omarchy-shell shell summon sd.dottie-todo-omarchy
 Item {
   id: root
 
@@ -31,7 +31,7 @@ Item {
 
   function requestClose() {
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todos-omarchy")
+      root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todo-omarchy")
     else
       root.close()
   }
@@ -98,7 +98,7 @@ Item {
         if (view && view.reload) view.reload()
         Qt.callLater(function () { if (view) view.forceActiveFocus() })
       } else if (!root.closingFromHost && root.shell && typeof root.shell.hide === "function") {
-        root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todos-omarchy")
+        root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todo-omarchy")
       }
     }
 

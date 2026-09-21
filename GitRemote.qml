@@ -9,7 +9,7 @@ Item {
   id: root
 
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/dottie-todos-omarchy"
+  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/dottie-todo-omarchy"
   property var queue: []
   property bool inFlight: false
   property bool skipRebase: false
