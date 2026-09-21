@@ -1,3 +1,7 @@
+0.45.0
+
+  Enlarge bar checkmark
+
 0.44.0
 
   Enlarge todo type

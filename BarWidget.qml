@@ -100,6 +100,8 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     fontFamily: "JetBrainsMono Nerd Font"
+    fontSize: 18
+    opticalSize: 22
     text: "󰄬"
     tooltipText: "Dottie-Todos · " + (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos"))
 
