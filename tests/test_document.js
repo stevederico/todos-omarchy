@@ -110,6 +110,17 @@ test("complete appends the done line at EOF", () => {
   assert.equal(Doc.openCount(lines), 3)
 })
 
+test("complete keeps the id of a unique title", () => {
+  let lines = Doc.fromText("## S\n- alpha\n- beta\n")
+  const before = Doc.parse(lines).flatMap((s) => s.items).find((i) => i.text === "alpha")
+  lines = Doc.toggleComplete(lines, before.text, before.section, before.lineIndex, false).lines
+  const after = Doc.parse(lines).flatMap((s) => s.items).find((i) => i.text === "alpha")
+  assert.equal(before.isCompleted, false)
+  assert.equal(after.isCompleted, true)
+  assert.equal(after.id, before.id)
+  assert.equal(after.id, "S:1:alpha")
+})
+
 test("reopen moves the item to the top of the open list", () => {
   let lines = [
     "## S",

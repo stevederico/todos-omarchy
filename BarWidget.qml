@@ -3,32 +3,24 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "TodoStore.js" as Store
 
 // Checklist count for the bar. Click toggles the window app.
 BarWidget {
   id: root
   moduleName: "sd.dottie-todos-omarchy"
 
-  readonly property int openCount: panelLoader.item ? Number(panelLoader.item.openCount || 0) : 0
+  property int openCount: 0
   readonly property bool opened: false
+  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "") + "/.config/dottie-todos-omarchy")) + "/dottie-todos-omarchy-open-count"
 
-  function injectPanel() {
-    var target = panelLoader.item
-    if (!target) return
-    if ("bar" in target) target.bar = root.bar
-    if ("settings" in target) target.settings = root.settings
-    if ("anchorItem" in target) target.anchorItem = button
-    if ("hostWidget" in target) target.hostWidget = root
+  function applyCountText(raw) {
+    var n = parseInt(String(raw || "0"), 10)
+    root.openCount = isFinite(n) && n > 0 ? n : 0
   }
 
   function refresh() {
-    if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
-    else if (panelLoader.item && panelLoader.item.reload) panelLoader.item.reload()
-  }
-
-  function syncRemote() {
-    remoteSync.skipRebase = panelLoader.item ? panelLoader.item.notSynced === true : false
-    remoteSync.enqueueAll()
+    Store.requestRefresh()
   }
 
   property bool clickLock: false
@@ -62,32 +54,20 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
+  Component.onCompleted: Store.subscribeCount(function (n) { root.openCount = n })
 
-  GitRemote {
-    id: remoteSync
-    onSyncFinished: function (outcome) {
-      if (panelLoader.item && panelLoader.item.applySyncOutcome)
-        panelLoader.item.applySyncOutcome(outcome)
-    }
-  }
-
-  Loader {
-    id: panelLoader
-    active: true
-    source: Qt.resolvedUrl("TodoPanel.qml")
-    visible: false
-    onLoaded: {
-      root.injectPanel()
-      Qt.callLater(root.injectPanel)
-    }
+  FileView {
+    path: root.openCountPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applyCountText(text())
+    onFileChanged: reload()
   }
 
   IpcHandler {
     target: "sd.dottie-todos-omarchy"
 
-    function refresh(): void { root.broadcast("refresh") }
+    function refresh(): void { root.refresh() }
     function open(): void { root.open() }
     function close(): void { root.close() }
     function show(): void { root.open() }
@@ -98,7 +78,7 @@ BarWidget {
   IpcHandler {
     target: "sd.todo-omarchy"
 
-    function refresh(): void { root.broadcast("refresh") }
+    function refresh(): void { root.refresh() }
     function open(): void { root.open() }
     function close(): void { root.close() }
     function show(): void { root.open() }

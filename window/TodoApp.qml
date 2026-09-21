@@ -62,7 +62,7 @@ Item {
     if (!view || !view.addTodo) return
     var text = captureField.text.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "")
     if (text.length === 0) return
-    if (view.isBusy) {
+    if (view.writeBusy) {
       captureHint = "Busy — try again"
       return
     }

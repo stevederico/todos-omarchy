@@ -1,3 +1,10 @@
+0.52.0
+
+  Stabilize complete ids
+  Share open count
+  Split write lock
+  Hide complete status
+
 0.51.0
 
   Animate complete strikethrough

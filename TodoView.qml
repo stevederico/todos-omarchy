@@ -6,6 +6,7 @@ import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
 import "Almanac.js" as Almanac
+import "TodoStore.js" as Store
 
 Item {
   id: root
@@ -23,6 +24,7 @@ Item {
   readonly property string calendarsPath: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/almanac/hosted-calendars.json"
   readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todos-omarchy-commit-msg"
   readonly property string almanacBodyPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todos-omarchy-almanac-body.json"
+  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todos-omarchy-open-count"
 
   property var sources: []
   property string selectedID: ""
@@ -34,7 +36,9 @@ Item {
   property string lastError: ""
   property string lastStatus: ""
   property string appVersion: ""
-  property bool isBusy: false
+  property bool writeBusy: false
+  property bool listBusy: false
+  readonly property bool isBusy: writeBusy || listBusy
   property bool fileMissing: false
   property bool suppressWatch: false
   property int statusToken: 0
@@ -137,8 +141,17 @@ Item {
 
   function publish() {
     sections = Doc.parse(lines)
-    openCount = Doc.openCount(lines)
+    noteOpenCount(Doc.openCount(lines))
     completedCount = Doc.completedCount(lines)
+  }
+
+  function noteOpenCount(n) {
+    openCount = n
+    Store.setOpenCount(n)
+    var body = String(n) + "\n"
+    var current = ""
+    try { current = countFile.text() } catch (e) { current = "" }
+    if (current !== body) countFile.setText(body)
   }
 
   function applyText(text) {
@@ -210,7 +223,7 @@ Item {
   function schedulePull(force) {
     if (isAlmanac || filePath === "") return
     if (pullInFlight) return
-    if (isBusy) return
+    if (writeBusy) return
     var dir = dirname(filePath)
     if (dir === "") return
     var now = Date.now()
@@ -305,12 +318,13 @@ Item {
       lines = []
       fileMissing = false
       sections = []
-      openCount = 0
+      noteOpenCount(0)
       completedCount = 0
       almanacReload()
       return
     }
-    isBusy = false
+    writeBusy = false
+    listBusy = false
     filePath = src.path
     todoFile.reload()
     changelogFile.reload()
@@ -407,6 +421,7 @@ Item {
 
   function almanacReload() {
     if (!isAlmanac) return
+    if (writeBusy) return
     var cal = almanacCalendarId()
     if (!cal) {
       lastError = "No Almanac calendar"
@@ -414,14 +429,14 @@ Item {
       return
     }
     almanacToken += 1
-    isBusy = true
+    listBusy = true
     lastError = ""
     almanacRemote.list(cal, almanacToken)
   }
 
   function applyAlmanacSections(next) {
     sections = next
-    openCount = Almanac.countOpen(next)
+    noteOpenCount(Almanac.countOpen(next))
     completedCount = Almanac.countCompleted(next)
     fileMissing = false
   }
@@ -431,13 +446,13 @@ Item {
   }
 
   function startAlmanacWrite(op, payload, status) {
-    if (isBusy) return
+    if (writeBusy) return
     var cal = almanacCalendarId()
     if (!cal) {
       lastError = "No Almanac calendar"
       return
     }
-    isBusy = true
+    writeBusy = true
     lastError = ""
     if (status) lastStatus = status
     almanacToken += 1
@@ -467,12 +482,16 @@ Item {
   function failPendingAlmanac(err) {
     pendingAlmanac = null
     lastError = err || "Could not write Almanac request"
-    isBusy = false
+    writeBusy = false
   }
 
   function onAlmanacFinished(op, ok, body, token) {
-    if (token !== almanacToken) return
-    isBusy = false
+    if (token !== almanacToken) {
+      if (op === "list") listBusy = false
+      return
+    }
+    if (op === "list") listBusy = false
+    else writeBusy = false
     if (!ok) {
       lastError = Almanac.errorMessage(body)
       completingId = ""
@@ -503,7 +522,7 @@ Item {
 
   function finishCompleteAnim() {
     if (!completeAnimDone) return
-    if (isAlmanac && !pendingCompleteReload && isBusy) return
+    if (isAlmanac && !pendingCompleteReload && writeBusy) return
     completingId = ""
     if (pendingCompleteReload) {
       pendingCompleteReload = false
@@ -512,8 +531,8 @@ Item {
   }
 
   function save(status, message, extraFiles) {
-    if (isBusy) return
-    isBusy = true
+    if (writeBusy) return
+    writeBusy = true
     lastError = ""
     suppressWatch = true
     suppressTimer.restart()
@@ -557,11 +576,11 @@ Item {
     lastStatus = pendingGit.status + " · not committed"
     lastError = err || "Could not write commit message file"
     pendingGit = null
-    isBusy = false
+    writeBusy = false
   }
 
   function mutate(fn, status, prefix, label) {
-    if (isBusy) return
+    if (writeBusy) return
     try {
       var result = fn()
       lines = result.lines
@@ -581,7 +600,7 @@ Item {
   }
 
   function complete(item) {
-    if (isBusy) return
+    if (writeBusy) return
     beginCompleteAnim(item, !item.isCompleted)
     if (isAlmanac) {
       var uid = item.uid || ""
@@ -590,7 +609,7 @@ Item {
         completingId = ""
         return
       }
-      startAlmanacWrite("post", { uid: uid, body: { title: trim(item.text), done: !item.isCompleted } }, item.isCompleted ? "Reopened" : "Completed")
+      startAlmanacWrite("post", { uid: uid, body: { title: trim(item.text), done: !item.isCompleted } }, "")
       return
     }
     mutate(function () {
@@ -604,7 +623,7 @@ Item {
       }
       result.extraFiles = extra
       return result
-    }, item.isCompleted ? "Reopened" : "Completed", item.isCompleted ? "Reopen" : "Complete", item.text)
+    }, "", item.isCompleted ? "Reopen" : "Complete", item.text)
   }
 
   function saveEdit(item, text) {
@@ -960,7 +979,7 @@ Item {
       if (root.lastGitJob && root.lastGitJob.token === root.statusToken)
         root.startGitJob(root.lastGitJob, true)
       else
-        root.isBusy = false
+        root.writeBusy = false
     }
   }
 
@@ -985,7 +1004,7 @@ Item {
             busyRetryTimer.restart()
             return
           }
-          root.isBusy = false
+          root.writeBusy = false
           return
         }
         var outcome = "committed"
@@ -1009,17 +1028,17 @@ Item {
         allowed[gitProc.status + " · not committed"] = true
         allowed[gitProc.status + " · committed"] = true
         allowed[gitProc.status + " · pushed"] = true
-        if (allowed[root.lastStatus] === true) {
+        if (gitProc.status !== "" && allowed[root.lastStatus] === true) {
           if (outcome === "failed") root.lastStatus = gitProc.status + " · not committed"
           else if (outcome === "pushed") root.lastStatus = gitProc.status + " · pushed"
           else root.lastStatus = gitProc.status + " · committed"
         }
         root.lastError = ""
-        root.isBusy = false
+        root.writeBusy = false
       }
     }
     onExited: function () {
-      Qt.callLater(function () { root.isBusy = false })
+      Qt.callLater(function () { root.writeBusy = false })
     }
   }
 
@@ -1089,6 +1108,14 @@ Item {
   }
 
   FileView {
+    id: countFile
+    path: root.openCountPath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+  }
+
+  FileView {
     id: almanacBodyFile
     path: root.almanacBodyPath
     watchChanges: false
@@ -1130,7 +1157,10 @@ Item {
     }
   }
 
-  Component.onCompleted: mkdirProc.running = true
+  Component.onCompleted: {
+    mkdirProc.running = true
+    Store.subscribeRefresh(function () { root.refresh() })
+  }
 
   Keys.onPressed: function (event) {
     if (root.fieldFocused) return
