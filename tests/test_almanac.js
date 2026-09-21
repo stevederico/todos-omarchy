@@ -175,7 +175,7 @@ test("almanac-todos.sh posts a title and patches done", async () => {
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ title: "Call Bob" }))
   const created = await runScript(["post", "--cal", "cal_test", "--body-file", body], { ALMANAC_CONFIG: config })
-  fs.writeFileSync(body, JSON.stringify({ done: true }))
+  fs.writeFileSync(body, JSON.stringify({ title: "Call Bob", done: true }))
   const patched = await runScript(["patch", "--cal", "cal_test", "--uid", "todo-new", "--body-file", body], { ALMANAC_CONFIG: config })
   server.close()
   fs.rmSync(dir, { recursive: true, force: true })
@@ -184,8 +184,9 @@ test("almanac-todos.sh posts a title and patches done", async () => {
   assert.equal(patched.status, 0, patched.stdout)
   assert.equal(seen[0].method, "POST")
   assert.equal(seen[0].url, "/v1/c/cal_test/todos")
-  assert.equal(seen[1].method, "PATCH")
-  assert.equal(seen[1].url, "/v1/c/cal_test/todos/todo-new")
+  assert.equal(seen[1].method, "POST")
+  assert.equal(seen[1].url, "/v1/c/cal_test/todos")
+  assert.match(seen[1].body, /todo-new/)
 })
 
 test("almanac-todos.sh posts done with uid on the collection", async () => {

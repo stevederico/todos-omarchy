@@ -106,15 +106,33 @@ METHOD="GET"
 if [[ $CMD == post ]]; then
   METHOD="POST"
 elif [[ $CMD == patch ]]; then
-  METHOD="PATCH"
-  URL="${TODOS}/${ITEM}"
+  # WAF 403s HTTP PATCH. POST /todos with uid in the body upserts.
+  METHOD="POST"
 elif [[ $CMD == delete ]]; then
   METHOD="DELETE"
   URL="${TODOS}/${ITEM}"
 fi
 
 TMP=$(mktemp)
-trap 'rm -f "$TMP"' EXIT
+MERGE=""
+if [[ $CMD == patch ]]; then
+  MERGE=$(mktemp)
+  export ITEM BODYFILE MERGE
+  python3 - <<'PY' || fail "bad todo"
+import json, os
+from pathlib import Path
+raw = Path(os.environ["BODYFILE"]).read_text()
+data = json.loads(raw)
+if not isinstance(data, dict):
+    raise SystemExit(1)
+uid = os.environ.get("ITEM", "").strip()
+if uid:
+    data["uid"] = uid
+Path(os.environ["MERGE"]).write_text(json.dumps(data))
+PY
+  BODYFILE="$MERGE"
+fi
+trap 'rm -f "$TMP" ${MERGE:+"$MERGE"}' EXIT
 
 CURL_ARGS=(-sS --max-time 20 -A "$UA" -o "$TMP" -w "%{http_code}" -X "$METHOD" -H "Authorization: Bearer ${KEY}" "$URL")
 if [[ $CMD == post || $CMD == patch ]]; then

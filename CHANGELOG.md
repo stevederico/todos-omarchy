@@ -1,3 +1,7 @@
+0.48.0
+
+  Write via POST
+
 0.47.0
 
   Complete Almanac via POST
