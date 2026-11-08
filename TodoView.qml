@@ -58,6 +58,8 @@ Item {
   // Almanac writes run one at a time, in order. None is dropped.
   property var almanacQueue: []
   property var activeAlmanac: null
+  // True while an Almanac write runs. Apart from writeBusy (git), so the queue drains on a file tab.
+  property bool almanacBusy: false
   property bool almanacChanged: false
   // Server rev per todo uid, sent as If-Match.
   property var almanacRevs: ({})
@@ -338,7 +340,7 @@ Item {
       almanacReload()
       return
     }
-    dropAlmanacWrites()
+    // Queued Almanac writes keep draining in the background.
     writeBusy = false
     listBusy = false
     filePath = src.path
@@ -446,7 +448,7 @@ Item {
 
   function almanacReload() {
     if (!isAlmanac) return
-    if (writeBusy || almanacQueue.length) return
+    if (almanacBusy || almanacQueue.length) return
     var cal = almanacCalendarId()
     if (!cal) {
       lastError = "No Almanac calendar"
@@ -505,17 +507,17 @@ Item {
 
   // Start the next queued write. The rev is read now, so a write after our own sees its new rev.
   function kickAlmanacWrite() {
-    if (writeBusy || !almanacQueue.length) return
+    if (almanacBusy || !almanacQueue.length) return
     var job = almanacQueue[0]
     almanacQueue = almanacQueue.slice(1)
     var payload = job.payload || {}
     var body = payload.body || {}
     var uid = payload.uid || body.uid || ""
-    writeBusy = true
+    almanacBusy = true
     almanacToken += 1
     job.token = almanacToken
     job.uid = uid
-    job.rev = almanacRevOf(uid)
+    job.rev = payload.rev || almanacRevOf(uid)
     job.path = job.op === "delete" ? "" : almanacBodyDir + "/dottie-todo-omarchy-almanac-body-" + job.token + ".json"
     activeAlmanac = job
     if (job.op === "delete") {
@@ -553,7 +555,7 @@ Item {
   function finishAlmanacWrite() {
     var job = activeAlmanac
     activeAlmanac = null
-    writeBusy = false
+    almanacBusy = false
     if (job && job.path) removeBodyFile(job.path)
     if (almanacQueue.length) {
       kickAlmanacWrite()
@@ -567,14 +569,15 @@ Item {
     }
   }
 
-  // Leaving the Almanac tab for a file: forget queued writes and ignore a reply in flight.
-  function dropAlmanacWrites() {
-    if (activeAlmanac && activeAlmanac.path) removeBodyFile(activeAlmanac.path)
-    if (activeAlmanac) almanacToken += 1
-    almanacQueue = []
-    pendingAlmanac = null
-    activeAlmanac = null
-    almanacChanged = false
+  // Put a write at the head of the queue, ahead of the writes queued after the one that failed.
+  function requeueAlmanac(op, cal, payload) {
+    almanacQueue = [{ op: op, cal: cal, payload: payload }].concat(almanacQueue)
+  }
+
+  // A write hit a stale rev (HTTP 412). The server copy stays; see Almanac.conflictRetry.
+  function keepConflictedWrite(job, info) {
+    var retry = Almanac.conflictRetry(job, info)
+    if (retry) requeueAlmanac(retry.op, job.cal, retry.payload)
   }
 
   function onAlmanacFinished(op, ok, body, token) {
@@ -584,6 +587,7 @@ Item {
     }
     if (op === "list") {
       listBusy = false
+      if (!isAlmanac) return
       if (!ok) {
         lastError = Almanac.errorMessage(body)
         return
@@ -594,16 +598,9 @@ Item {
     }
     var job = activeAlmanac
     if (!ok && Almanac.isConflict(body)) {
-      // Changed elsewhere since our last read: reload and say so.
-      if (job) {
-        setAlmanacRev(job.uid, 0)
-        var rest = []
-        for (var q = 0; q < almanacQueue.length; q++) {
-          var queued = almanacQueue[q].payload || {}
-          if ((queued.uid || (queued.body && queued.body.uid) || "") !== job.uid) rest.push(almanacQueue[q])
-        }
-        almanacQueue = rest
-      }
+      // Changed elsewhere since our last read: keep both versions, reload and say so.
+      // Later writes stay queued. Our rev stays stale, so each one meets the same check.
+      if (job) keepConflictedWrite(job, Almanac.conflictInfo(body))
       lastError = ""
       lastStatus = "Changed elsewhere, reloaded"
       almanacChanged = true
@@ -616,7 +613,8 @@ Item {
       var saved = null
       try { saved = JSON.parse(body) } catch (e) { saved = null }
       if (job && op === "delete") setAlmanacRev(job.uid, 0)
-      else if (saved && saved.uid && typeof saved.rev === "number") setAlmanacRev(String(saved.uid), saved.rev)
+      // A retry sent at the server's rev leaves ours stale, so later queued edits still conflict.
+      else if (saved && saved.uid && typeof saved.rev === "number" && !(job && job.payload && job.payload.rev)) setAlmanacRev(String(saved.uid), saved.rev)
       almanacChanged = true
     }
     finishAlmanacWrite()
@@ -637,7 +635,7 @@ Item {
 
   function finishCompleteAnim() {
     if (!completeAnimDone) return
-    if (isAlmanac && !pendingCompleteReload && writeBusy) return
+    if (isAlmanac && !pendingCompleteReload && almanacBusy) return
     completingId = ""
     if (pendingCompleteReload) {
       pendingCompleteReload = false
@@ -724,7 +722,7 @@ Item {
         completingId = ""
         return
       }
-      startAlmanacWrite("post", { uid: uid, body: { title: trim(item.text), done: !item.isCompleted } }, "")
+      startAlmanacWrite("post", { uid: uid, toggle: true, body: { title: trim(item.text), done: !item.isCompleted } }, "")
       return
     }
     mutate(function () {
@@ -1137,7 +1135,7 @@ Item {
     repeat: true
     running: root.shown && root.isAlmanac
     onTriggered: {
-      if (root.writeBusy || root.listBusy || root.almanacQueue.length || root.editingId !== "") return
+      if (root.almanacBusy || root.listBusy || root.almanacQueue.length || root.editingId !== "") return
       root.almanacReload()
     }
   }

@@ -1,3 +1,10 @@
+0.58.0
+
+  Keep conflict copies
+  Retry conflicted checks
+  Drain queue offscreen
+  Update Almanac client
+
 0.57.0
 
   Use shared Almanac client

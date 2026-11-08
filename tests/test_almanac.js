@@ -107,6 +107,45 @@ test("errorMessage reads ERROR and JSON", () => {
   assert.equal(Almanac.errorMessage("ERROR:conflict\n"), "Changed elsewhere")
 })
 
+test("conflictInfo reads the server copy after the conflict line", () => {
+  assert.equal(Almanac.isConflict('ERROR:conflict\n{"deleted":true,"current":null}\n'), true)
+  assert.equal(Almanac.isConflict("ERROR:not found\n"), false)
+  assert.deepEqual(Almanac.conflictInfo('ERROR:conflict\n{"deleted":true,"current":null}\n'), { deleted: true, current: null })
+  assert.deepEqual(Almanac.conflictInfo("ERROR:conflict\n"), { deleted: false, current: null })
+})
+
+test("conflictCopyTitle marks the copy and fits the title cap", () => {
+  assert.equal(Almanac.conflictCopyTitle(" Milk "), "Milk (conflict copy)")
+  const long = Almanac.conflictCopyTitle("\u00e9".repeat(512))
+  assert.ok(Buffer.byteLength(long) <= 512)
+  assert.match(long, / \(conflict copy\)$/)
+  assert.ok(Buffer.byteLength(Almanac.conflictCopyTitle("\u{1F600}".repeat(200))) <= 512)
+})
+
+test("conflictRetry keeps an edit as a new todo", () => {
+  const job = { op: "post", cal: "cal_1", uid: "todo-1", payload: { uid: "todo-1", body: { title: "Mine", done: false } } }
+  assert.deepEqual(Almanac.conflictRetry(job, { deleted: false, current: { uid: "todo-1", title: "Theirs", rev: 9 } }), {
+    op: "post",
+    payload: { body: { title: "Mine (conflict copy)", done: false } }
+  })
+  assert.deepEqual(Almanac.conflictRetry(job, { deleted: true, current: null }).payload.body.title, "Mine (conflict copy)")
+})
+
+test("conflictRetry sends a toggle again on the server copy", () => {
+  const job = { op: "post", cal: "cal_1", uid: "todo-1", payload: { uid: "todo-1", toggle: true, body: { title: "Old", done: true } } }
+  assert.deepEqual(Almanac.conflictRetry(job, { deleted: false, current: { uid: "todo-1", title: "New", done: false, rev: 9 } }), {
+    op: "post",
+    payload: { uid: "todo-1", toggle: true, rev: 9, body: { title: "New", done: true } }
+  })
+  assert.equal(Almanac.conflictRetry(job, { deleted: false, current: { uid: "todo-1", title: "New", done: true, rev: 9 } }), null)
+  assert.equal(Almanac.conflictRetry(job, { deleted: true, current: null }), null)
+  assert.equal(Almanac.conflictRetry(job, { deleted: false, current: null }), null)
+})
+
+test("conflictRetry keeps the server copy on a delete", () => {
+  assert.equal(Almanac.conflictRetry({ op: "delete", uid: "todo-1", payload: { uid: "todo-1" } }, { deleted: false, current: { rev: 9 } }), null)
+})
+
 function listen(server) {
   return new Promise((resolve, reject) => {
     server.listen(0, "127.0.0.1", () => resolve(server.address().port))
@@ -264,9 +303,13 @@ test("almanac-todos.sh sends --rev as If-Match and maps 412 to conflict", async 
   const removed = await runScript(["delete", "--cal", "cal_test", "--uid", "todo-1", "--rev", "7"], { ALMANAC_CONFIG: config })
   server.close()
   fs.rmSync(dir, { recursive: true, force: true })
-  assert.equal(posted.stdout, "ERROR:conflict\n")
+  assert.equal(posted.stdout.split("\n")[0], "ERROR:conflict")
   assert.notEqual(posted.status, 0)
-  assert.equal(removed.stdout, "ERROR:conflict\n")
+  assert.equal(removed.stdout.split("\n")[0], "ERROR:conflict")
+  assert.deepEqual(Almanac.conflictInfo(posted.stdout), {
+    deleted: false,
+    current: { uid: "todo-1", title: "New", rev: 9 }
+  })
   const writes = seen.filter((row) => row.method !== "GET")
   assert.deepEqual(writes.map((row) => [row.method, row.url, row.ifMatch]), [
     ["PUT", "/v1/c/cal_test/todos/todo-1", '"7"'],

@@ -8,8 +8,9 @@
 #   delete --uid UID [--rev REV]
 #
 # Updates keep the fields the body leaves out. Prints JSON on success,
-# `ERROR:<text>` otherwise. A stale --rev prints `ERROR:conflict`. Sealed
-# todos are opened before they are printed.
+# `ERROR:<text>` otherwise. A stale --rev prints `ERROR:conflict`, then the
+# server's {"deleted", "current"} on the next line. Sealed todos are opened
+# before they are printed.
 set -u
 
 fail() {
@@ -88,7 +89,11 @@ finish() {
       printf '%s\n' '{"ok":true}'
       exit 0
       ;;
-    412) fail "conflict" ;;
+    412)
+      printf 'ERROR:conflict\n'
+      almanac_open todo <"$OUT" 2>/dev/null
+      exit 1
+      ;;
   esac
   err=$(almanac_error "$OUT")
   case "$CODE" in
@@ -171,6 +176,11 @@ json.dump(d, open(sys.argv[2], "w"))' "$BODYFILE" "$PLAIN" || fail "bad todo"
       finish
     fi
     request GET "$TODOS/$ITEM"
+    if [[ $CODE == 404 && -n $REV ]]; then
+      # Deleted since that rev was read: the same answer as a 412.
+      printf 'ERROR:conflict\n%s\n' '{"deleted": true, "current": null}'
+      exit 1
+    fi
     [[ $CODE == 200 ]] || finish
     CURRENT=$(almanac_tmp) || fail "Almanac request failed"
     almanac_open todo <"$OUT" >"$CURRENT" || fail "sealed calendar needs the almanac binary"

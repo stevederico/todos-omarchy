@@ -94,15 +94,20 @@ for feed in plain seal; do
 
   run post --cal "$cal" --rev "$rev2" --body-file "$work/body.json"
   check "$feed: stale rev post fails" "$?" "1"
-  check "$feed: stale rev post is a conflict" "$(cat "$work/out")" "ERROR:conflict"
+  check "$feed: stale rev post is a conflict" "$(head -1 "$work/out")" "ERROR:conflict"
+  check "$feed: conflict prints the server copy" "$(sed -n 2p "$work/out" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["deleted"], d["current"]["title"], d["current"]["rev"])')" "False Buy oat milk $rev3"
   printf '{"title":"Buy milk","done":true}' >"$work/body.json"
   run patch --cal "$cal" --uid "$uid" --rev "$rev" --body-file "$work/body.json"
-  check "$feed: stale rev patch is a conflict" "$(cat "$work/out")" "ERROR:conflict"
+  check "$feed: stale rev patch is a conflict" "$(head -1 "$work/out")" "ERROR:conflict"
   run delete --cal "$cal" --uid "$uid" --rev "$rev"
-  check "$feed: stale rev delete is a conflict" "$(cat "$work/out")" "ERROR:conflict"
+  check "$feed: stale rev delete is a conflict" "$(head -1 "$work/out")" "ERROR:conflict"
 
   run delete --cal "$cal" --uid "$uid" --rev "$rev3"
   check "$feed: delete with rev" "$(cat "$work/out")" '{"ok":true}'
+  printf '{"uid":"%s","title":"Buy oat milk","done":true}' "$uid" >"$work/body.json"
+  run post --cal "$cal" --rev "$rev3" --body-file "$work/body.json"
+  check "$feed: write to a deleted todo is a conflict" "$(head -1 "$work/out")" "ERROR:conflict"
+  check "$feed: conflict says deleted" "$(sed -n 2p "$work/out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["deleted"])')" "True"
   run list --cal "$cal"
   check "$feed: deleted" "$(field 'len(d["todos"])')" "0"
 done

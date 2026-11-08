@@ -156,9 +156,27 @@ function countCompleted(sections) {
   return n
 }
 
-// The script prints ERROR:conflict when a --rev is stale (HTTP 412).
+// The script prints ERROR:conflict when a --rev is stale (HTTP 412),
+// then the server's {"deleted", "current"} on the next line.
 function isConflict(raw) {
-  return trim(String(raw || "")) === "ERROR:conflict"
+  return trim(String(raw || "").split("\n")[0]) === "ERROR:conflict"
+}
+
+// { deleted, current } from a conflict reply. current is the server's todo or null.
+function conflictInfo(raw) {
+  var parsed = null
+  try { parsed = JSON.parse(String(raw || "").split("\n").slice(1).join("\n")) } catch (e) { parsed = null }
+  var current = parsed && parsed.current && typeof parsed.current === "object" ? parsed.current : null
+  return { deleted: !!(parsed && parsed.deleted), current: current }
+}
+
+// Title for the new todo that keeps an edit the server refused. Fits the 512-byte cap.
+function conflictCopyTitle(title) {
+  var suffix = " (conflict copy)"
+  var chars = Array.from(trim(title))
+  while (chars.length && encodeURIComponent(chars.join("")).replace(/%[0-9A-F]{2}/g, "x").length > 512 - suffix.length)
+    chars.pop()
+  return trim(chars.join("")) + suffix
 }
 
 function errorMessage(raw) {
@@ -172,9 +190,32 @@ function errorMessage(raw) {
   return trim(text) || "Almanac request failed"
 }
 
+// What to queue after a write hit a stale rev (HTTP 412), or null. The server
+// copy always stays. An edit is saved as a new todo. A toggle is sent again on
+// top of the server copy, at its rev. A delete, or a toggle of a todo that is
+// gone or already there, needs nothing.
+function conflictRetry(job, info) {
+  var payload = (job && job.payload) || {}
+  var body = payload.body || {}
+  if (!job || job.op === "delete") return null
+  if (payload.toggle) {
+    var current = info && info.current
+    if (!current || info.deleted || !current.rev || !!current.done === !!body.done) return null
+    return {
+      op: "post",
+      payload: { uid: job.uid || payload.uid, toggle: true, rev: current.rev, body: { title: current.title, done: !!body.done } }
+    }
+  }
+  if (body.title === undefined) return null
+  return { op: "post", payload: { body: { title: conflictCopyTitle(body.title), done: !!body.done } } }
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     isConflict: isConflict,
+    conflictInfo: conflictInfo,
+    conflictCopyTitle: conflictCopyTitle,
+    conflictRetry: conflictRetry,
     parseCalendars: parseCalendars,
     isAlmanacPath: isAlmanacPath,
     pathCalendarId: pathCalendarId,
