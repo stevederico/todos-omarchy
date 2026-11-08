@@ -1,3 +1,8 @@
+0.60.1
+
+  Restore ALMANAC fallbacks
+  Update cloud-lib.sh
+
 0.60.0
 
   Rename code to Cloud
