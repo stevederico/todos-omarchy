@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# bash tests/almanac_server.sh
-# Runs scripts/almanac-todos.sh against a throwaway Agent Cloud server (AGENTCLOUD_BIN or ALMANAC_BIN,
+# bash tests/cloud_server.sh
+# Runs scripts/cloud-todos.sh against a throwaway Agent Cloud server (AGENTCLOUD_BIN or ALMANAC_BIN,
 # 0.34 or later) with one plain and one sealed calendar. Prints TAP-ish lines.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
-script="$here/../scripts/almanac-todos.sh"
+script="$here/../scripts/cloud-todos.sh"
 BIN="${AGENTCLOUD_BIN:-${ALMANAC_BIN:-$HOME/Projects/agentcloud/target/debug/agentcloud}}"
 [[ -z ${AGENTCLOUD_BIN-}${ALMANAC_BIN-} && ! -x $BIN ]] && BIN="$HOME/Projects/almanac/target/debug/almanac"
 if [[ ! -x $BIN ]]; then
@@ -61,7 +61,7 @@ touch "$work/watch"
 watcher=$!
 
 run() {
-  PATH="$work/bin:$PATH" XDG_RUNTIME_DIR="$work/run" ALMANAC_CONFIG="$work/creds.json" ALMANAC_BIN="$BIN" \
+  PATH="$work/bin:$PATH" XDG_RUNTIME_DIR="$work/run" CLOUD_CONFIG="$work/creds.json" AGENTCLOUD_BIN="$BIN" \
     bash "$script" "$@" >"$work/out" 2>"$work/err"
   local status=$?
   cat "$work/out" >>"$work/all-out"
@@ -120,7 +120,7 @@ rm -f "$work/watch"
 wait "$watcher" 2>/dev/null
 watcher=""
 
-check "ps saw the script run" "$(grep -c 'almanac-todos.sh' "$work/ps.log" | awk '{print ($1 > 0) ? "yes" : "no"}')" "yes"
+check "ps saw the script run" "$(grep -c 'cloud-todos.sh' "$work/ps.log" | awk '{print ($1 > 0) ? "yes" : "no"}')" "yes"
 check "no key or token in ps" "$(grep -cF -f "$work/secrets" "$work/ps.log")" "0"
 check "curl ran through the wrapper" "$(awk 'END {print (NR > 0) ? "yes" : "no"}' "$work/curl-argv.log")" "yes"
 check "no key or token in curl argv" "$(grep -cF -f "$work/secrets" "$work/curl-argv.log")" "0"

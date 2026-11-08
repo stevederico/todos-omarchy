@@ -1,4 +1,4 @@
-// Agent Cloud hosted todos (the almanac server). No I/O. QML and Node tests share this file.
+// Agent Cloud hosted todos (the agentcloud server). No I/O. QML and Node tests share this file.
 
 var PRODUCT = "Agent Cloud"
 
@@ -32,7 +32,7 @@ function parseCalendars(raw) {
 // "agentcloud" or "agentcloud:CAL_ID" in the add field; "almanac" still works.
 var PATH_PREFIXES = ["agentcloud", "almanac"]
 
-function isAlmanacPath(path) {
+function isCloudPath(path) {
   var raw = trim(path)
   for (var i = 0; i < PATH_PREFIXES.length; i++) {
     if (raw === PATH_PREFIXES[i] || raw.indexOf(PATH_PREFIXES[i] + ":") === 0) return true
@@ -49,10 +49,11 @@ function pathCalendarId(path) {
   return ""
 }
 
-function isAlmanacSource(src) {
+function isCloudSource(src) {
   if (!src) return false
-  if (src.kind === "almanac") return true
-  return isAlmanacPath(src.path)
+  // "almanac": the kind tabs were saved with before the Agent Cloud rename.
+  if (src.kind === "cloud" || src.kind === "almanac") return true
+  return isCloudPath(src.path)
 }
 
 function calendarIdOf(src) {
@@ -75,7 +76,7 @@ function resolveCalendar(calendars, wantedId) {
 function makeSource(cal, id) {
   return {
     id: id,
-    kind: "almanac",
+    kind: "cloud",
     title: displayName(cal && cal.name),
     calendarId: cal && cal.id ? String(cal.id) : "",
     path: ""
@@ -85,7 +86,7 @@ function makeSource(cal, id) {
 function defaultTabId(sources) {
   var list = sources || []
   for (var i = 0; i < list.length; i++) {
-    if (isAlmanacSource(list[i])) return list[i].id
+    if (isCloudSource(list[i])) return list[i].id
   }
   return list.length ? list[0].id : ""
 }
@@ -93,11 +94,11 @@ function defaultTabId(sources) {
 function ensureSource(sources, calendars, newIdFn) {
   var next = (sources || []).slice()
   for (var i = 0; i < next.length; i++) {
-    if (isAlmanacSource(next[i])) return next
+    if (isCloudSource(next[i])) return next
   }
   var cal = resolveCalendar(calendars, "")
   if (!cal) return next
-  next.unshift(makeSource(cal, newIdFn ? newIdFn() : ("almanac-" + cal.id)))
+  next.unshift(makeSource(cal, newIdFn ? newIdFn() : ("cloud-" + cal.id)))
   return next
 }
 
@@ -236,9 +237,9 @@ if (typeof module !== "undefined") {
     conflictCopyTitle: conflictCopyTitle,
     conflictRetry: conflictRetry,
     parseCalendars: parseCalendars,
-    isAlmanacPath: isAlmanacPath,
+    isCloudPath: isCloudPath,
     pathCalendarId: pathCalendarId,
-    isAlmanacSource: isAlmanacSource,
+    isCloudSource: isCloudSource,
     calendarIdOf: calendarIdOf,
     resolveCalendar: resolveCalendar,
     makeSource: makeSource,

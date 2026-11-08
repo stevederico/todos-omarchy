@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Talk to Agent Cloud hosted todos through almanac-lib.sh.
+# Talk to Agent Cloud hosted todos through cloud-lib.sh.
 # The key stays in the config file; requests carry its token on curl's stdin.
 #
 #   list
@@ -18,9 +18,9 @@ fail() {
   exit 1
 }
 
-ALMANAC_UA="${ALMANAC_UA:-Mozilla/5.0 agentcloud-todos}"
-# shellcheck source=almanac-lib.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/almanac-lib.sh" || fail "Agent Cloud library missing"
+CLOUD_UA="${CLOUD_UA:-Mozilla/5.0 agentcloud-todos}"
+# shellcheck source=cloud-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cloud-lib.sh" || fail "Agent Cloud library missing"
 
 CMD=""
 CAL=""
@@ -53,14 +53,14 @@ if [[ $CMD == patch || $CMD == delete ]]; then
 fi
 [[ -z $REV || $REV =~ ^[0-9]+$ ]] || fail "bad rev"
 
-almanac_load "$CAL" || fail "No Agent Cloud calendar"
-TODOS="$ALMANAC_ROOT/todos"
-OUT=$(almanac_tmp) || fail "Agent Cloud request failed"
+cloud_load "$CAL" || fail "No Agent Cloud calendar"
+TODOS="$CLOUD_ROOT/todos"
+OUT=$(cloud_tmp) || fail "Agent Cloud request failed"
 CODE=""
 
 # request METHOD URL [BODY_FILE] [IF_MATCH_REV]
 request() {
-  CODE=$(almanac_curl "$1" "$2" "$OUT" "${3-}" "${4-}") || fail "Agent Cloud request failed"
+  CODE=$(cloud_curl "$1" "$2" "$OUT" "${3-}" "${4-}") || fail "Agent Cloud request failed"
 }
 
 new_uid() {
@@ -81,7 +81,7 @@ finish() {
       if [[ ! -s $OUT ]]; then
         printf '%s\n' '{"ok":true}'
       else
-        almanac_open todo <"$OUT" || fail "sealed calendar needs the agentcloud or almanac binary"
+        cloud_open todo <"$OUT" || fail "sealed calendar needs the agentcloud binary"
       fi
       exit 0
       ;;
@@ -91,11 +91,11 @@ finish() {
       ;;
     412)
       printf 'ERROR:conflict\n'
-      almanac_open todo <"$OUT" 2>/dev/null
+      cloud_open todo <"$OUT" 2>/dev/null
       exit 1
       ;;
   esac
-  err=$(almanac_error "$OUT")
+  err=$(cloud_error "$OUT")
   case "$CODE" in
     400) fail "${err:-bad todo}" ;;
     401) fail "${err:-Agent Cloud key rejected}" ;;
@@ -149,11 +149,11 @@ case "$CMD" in
     finish
     ;;
   post)
-    FEED=$(almanac_feed) || fail "Agent Cloud request failed"
+    FEED=$(cloud_feed) || fail "Agent Cloud request failed"
     if [[ $FEED == seal ]]; then
       UID_VALUE=$(new_uid "$BODYFILE") || fail "bad todo"
-      SEALED=$(almanac_tmp) || fail "Agent Cloud request failed"
-      almanac_seal_body todo "$UID_VALUE" "$BODYFILE" "$SEALED" || fail "could not seal the todo"
+      SEALED=$(cloud_tmp) || fail "Agent Cloud request failed"
+      cloud_seal_body todo "$UID_VALUE" "$BODYFILE" "$SEALED" || fail "could not seal the todo"
       request PUT "$TODOS/$UID_VALUE" "$SEALED"
     else
       request POST "$TODOS" "$BODYFILE"
@@ -161,10 +161,10 @@ case "$CMD" in
     finish
     ;;
   patch)
-    FEED=$(almanac_feed) || fail "Agent Cloud request failed"
+    FEED=$(cloud_feed) || fail "Agent Cloud request failed"
     if [[ $FEED != seal ]]; then
       # PUT keeps the fields left out. Cloudflare blocks PATCH.
-      PLAIN=$(almanac_tmp) || fail "Agent Cloud request failed"
+      PLAIN=$(cloud_tmp) || fail "Agent Cloud request failed"
       python3 -c 'import json, sys
 d = json.load(open(sys.argv[1]))
 if not isinstance(d, dict):
@@ -182,16 +182,16 @@ json.dump(d, open(sys.argv[2], "w"))' "$BODYFILE" "$PLAIN" || fail "bad todo"
       exit 1
     fi
     [[ $CODE == 200 ]] || finish
-    CURRENT=$(almanac_tmp) || fail "Agent Cloud request failed"
-    almanac_open todo <"$OUT" >"$CURRENT" || fail "sealed calendar needs the agentcloud or almanac binary"
+    CURRENT=$(cloud_tmp) || fail "Agent Cloud request failed"
+    cloud_open todo <"$OUT" >"$CURRENT" || fail "sealed calendar needs the agentcloud binary"
     read -r UNREADABLE BASE_REV < <(python3 -c 'import json, sys
 d = json.load(open(sys.argv[1]))
 print("1" if d.get("unreadable") else "0", d.get("rev") or "")' "$CURRENT")
     [[ $UNREADABLE == 0 ]] || fail "could not open the seal"
-    MERGED=$(almanac_tmp) || fail "Agent Cloud request failed"
+    MERGED=$(cloud_tmp) || fail "Agent Cloud request failed"
     merge_into "$CURRENT" "$BODYFILE" "$MERGED" || fail "bad todo"
-    SEALED=$(almanac_tmp) || fail "Agent Cloud request failed"
-    almanac_seal_body todo "$ITEM" "$MERGED" "$SEALED" || fail "could not seal the todo"
+    SEALED=$(cloud_tmp) || fail "Agent Cloud request failed"
+    cloud_seal_body todo "$ITEM" "$MERGED" "$SEALED" || fail "could not seal the todo"
     # Without --rev, the rev just read guards the merge.
     request PUT "$TODOS/$ITEM" "$SEALED" "${REV:-$BASE_REV}"
     finish

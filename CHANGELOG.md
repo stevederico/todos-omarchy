@@ -1,3 +1,10 @@
+0.60.0
+
+  Rename code to Cloud
+  Use cloud-lib.sh
+  Save cloud tab kind
+  Read old almanac kind
+
 0.59.0
 
   Rename to Agent Cloud

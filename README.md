@@ -62,6 +62,7 @@ This app was Dottie-Todos (`dottie-todo-omarchy`). The plugin id changed, so ins
 - Credentials: read from `~/.config/agentcloud/hosted-calendars.json`. While that file is missing, the old `~/.config/almanac/hosted-calendars.json` is read instead. Move it when you like: `mkdir -p ~/.config/agentcloud && mv ~/.config/almanac/hosted-calendars.json ~/.config/agentcloud/`.
 - Server: `https://cloud.bixbyapps.com`. A credentials file whose write URL is on `almanac.dottie.ai` talks to the new host.
 - Sealed calendars need the `agentcloud` (or older `almanac`) binary for seal and open.
+- Code names: `Almanac.js`, `AlmanacRemote.qml`, `scripts/almanac-todos.sh` and the tests are now `Cloud.js`, `CloudRemote.qml`, `scripts/cloud-todos.sh`, `tests/cloud_server.sh` and `tests/test_cloud.js`. The Agent Cloud tab is saved as kind `cloud` with `cloudHidden`; the old `almanac` kind and `almanacHidden` key are still read.
 - Runtime files (open count, commit message, request bodies) and the git lock (`.git/agentcloud-todos-sync.lock`) use the new name. Nothing there needs moving.
 - Git remote: `git remote set-url origin https://github.com/stevederico/todos-omarchy.git` in an existing clone.
 
@@ -79,12 +80,12 @@ Agent Cloud lists use the hosted `/v1/c/{id}/todos` API. First tag becomes the s
 
 ```sh
 node --test tests/*.js
-AGENTCLOUD_BIN=~/Projects/agentcloud/target/debug/agentcloud bash tests/almanac_server.sh   # or ALMANAC_BIN for an older almanac build
+AGENTCLOUD_BIN=~/Projects/agentcloud/target/debug/agentcloud bash tests/cloud_server.sh   # or ALMANAC_BIN for an older almanac build
 ```
 
-`tests/almanac_server.sh` runs the script against a throwaway Agent Cloud server built from the agentcloud repo (plain and sealed calendars, stale `--rev`, no key or token in `ps`).
+`tests/cloud_server.sh` runs the script against a throwaway Agent Cloud server built from the agentcloud repo (plain and sealed calendars, stale `--rev`, no key or token in `ps`).
 
-`scripts/almanac-lib.sh` is a copy of `clients/shell/almanac-lib.sh` from the Agent Cloud server repo (`stevederico/agentcloud`). Change it there first.
+`scripts/cloud-lib.sh` is a copy of `clients/shell/cloud-lib.sh` from the Agent Cloud server repo (`stevederico/agentcloud`). Change it there first.
 
 ## Sample data
 

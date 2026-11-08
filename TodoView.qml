@@ -5,7 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "TodoDocument.js" as Doc
-import "Almanac.js" as Almanac
+import "Cloud.js" as Cloud
 import "TodoStore.js" as Store
 
 Item {
@@ -32,7 +32,7 @@ Item {
   property string legacyCalendarsText: ""
   readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/agentcloud-todos-commit-msg"
   // Plaintext request bodies: the private runtime dir, else a private cache dir. Removed after each write.
-  readonly property string almanacBodyDir: Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("XDG_CACHE_HOME") || (home + "/.cache")) + "/agentcloud-todos")
+  readonly property string cloudBodyDir: Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("XDG_CACHE_HOME") || (home + "/.cache")) + "/agentcloud-todos")
   readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/agentcloud-todos-open-count"
 
   property var sources: []
@@ -57,20 +57,20 @@ Item {
   property var pendingGit: null
   property var lastGitJob: null
   property bool notSynced: false
-  property var almanacCalendars: []
-  property bool almanacHidden: false
+  property var cloudCalendars: []
+  property bool cloudHidden: false
   property bool sourcesReady: false
   property bool wantDefaultTab: true
-  property int almanacToken: 0
-  property var pendingAlmanac: null
-  // Almanac writes run one at a time, in order. None is dropped.
-  property var almanacQueue: []
-  property var activeAlmanac: null
-  // True while an Almanac write runs. Apart from writeBusy (git), so the queue drains on a file tab.
-  property bool almanacBusy: false
-  property bool almanacChanged: false
+  property int cloudToken: 0
+  property var pendingCloud: null
+  // Cloud writes run one at a time, in order. None is dropped.
+  property var cloudQueue: []
+  property var activeCloud: null
+  // True while an Cloud write runs. Apart from writeBusy (git), so the queue drains on a file tab.
+  property bool cloudBusy: false
+  property bool cloudChanged: false
   // Server rev per todo uid, sent as If-Match.
-  property var almanacRevs: ({})
+  property var cloudRevs: ({})
   // Set by the host: true while the panel or window is on screen.
   property bool shown: false
   property bool completeAnimDone: true
@@ -122,10 +122,10 @@ Item {
   readonly property var filtered: Doc.filterSections(sections, query, showCompleted, completingId)
   readonly property bool fieldFocused: addField.activeFocus || listPathField.activeFocus || filterField.activeFocus || renameField.activeFocus || editingId !== ""
   readonly property string changelogPath: filePath !== "" ? dirname(filePath) + "/CHANGELOG.md" : ""
-  readonly property bool isAlmanac: {
+  readonly property bool isCloud: {
     var src = null
     for (var i = 0; i < sources.length; i++) if (sources[i].id === selectedID) src = sources[i]
-    return !!(src && Almanac.isAlmanacSource(src))
+    return !!(src && Cloud.isCloudSource(src))
   }
 
   function trim(s) {
@@ -192,17 +192,17 @@ Item {
     mkdirProc.running = true
     var stored = []
     for (var i = 0; i < sources.length; i++) stored.push(serializeSource(sources[i]))
-    var payload = { sources: stored, selectedID: selectedID, almanacHidden: almanacHidden }
+    var payload = { sources: stored, selectedID: selectedID, cloudHidden: cloudHidden }
     sourcesFile.setText(JSON.stringify(payload, null, 2) + "\n")
   }
 
   function serializeSource(src) {
-    if (Almanac.isAlmanacSource(src)) {
+    if (Cloud.isCloudSource(src)) {
       return {
         id: src.id,
-        kind: "almanac",
-        title: Almanac.displayName(src.title),
-        calendarId: Almanac.calendarIdOf(src)
+        kind: "cloud",
+        title: Cloud.displayName(src.title),
+        calendarId: Cloud.calendarIdOf(src)
       }
     }
     return { id: src.id, title: src.title, path: src.path }
@@ -210,13 +210,13 @@ Item {
 
   function sourceTooltip(src) {
     if (!src) return ""
-    if (Almanac.isAlmanacSource(src)) return Almanac.PRODUCT + " · " + Almanac.calendarIdOf(src)
+    if (Cloud.isCloudSource(src)) return Cloud.PRODUCT + " · " + Cloud.calendarIdOf(src)
     return src.path || ""
   }
 
-  function maybeInsertAlmanac() {
-    if (!sourcesReady || almanacHidden) return
-    var next = Almanac.ensureSource(sources, almanacCalendars, newId)
+  function maybeInsertCloud() {
+    if (!sourcesReady || cloudHidden) return
+    var next = Cloud.ensureSource(sources, cloudCalendars, newId)
     if (next.length === sources.length) return
     sources = next
     persistSources()
@@ -241,7 +241,7 @@ Item {
   }
 
   function schedulePull(force) {
-    if (isAlmanac || filePath === "") return
+    if (isCloud || filePath === "") return
     if (pullInFlight) return
     if (writeBusy) return
     var dir = dirname(filePath)
@@ -262,8 +262,8 @@ Item {
   function refresh() {
     notSynced = false
     lastError = ""
-    if (isAlmanac) {
-      almanacReload()
+    if (isCloud) {
+      cloudReload()
       return
     }
     todoFile.reload()
@@ -287,18 +287,19 @@ Item {
   function loadSources(raw) {
     var parsed = null
     try { parsed = JSON.parse(raw) } catch (e) { parsed = null }
-    almanacHidden = !!(parsed && parsed.almanacHidden)
+    // almanacHidden: the key before the Agent Cloud rename.
+    cloudHidden = !!(parsed && (parsed.cloudHidden || parsed.almanacHidden))
     var next = []
     if (parsed && parsed.sources && parsed.sources.length) {
       for (var i = 0; i < parsed.sources.length; i++) {
         var src = parsed.sources[i]
         if (!src) continue
-        if (Almanac.isAlmanacSource(src)) {
+        if (Cloud.isCloudSource(src)) {
           next.push({
             id: src.id || newId(),
-            kind: "almanac",
-            title: Almanac.displayName(src.title),
-            calendarId: Almanac.calendarIdOf(src),
+            kind: "cloud",
+            title: Cloud.displayName(src.title),
+            calendarId: Cloud.calendarIdOf(src),
             path: ""
           })
           continue
@@ -314,7 +315,7 @@ Item {
     }
     if (next.length === 0) next = [defaultSource()]
     var before = next.length
-    if (!almanacHidden) next = Almanac.ensureSource(next, almanacCalendars, newId)
+    if (!cloudHidden) next = Cloud.ensureSource(next, cloudCalendars, newId)
     sources = next
     sourcesReady = true
     var sel = parsed && parsed.selectedID ? String(parsed.selectedID) : ""
@@ -322,9 +323,9 @@ Item {
     for (var j = 0; j < sources.length; j++) if (sources[j].id === sel) ok = true
     if (wantDefaultTab) {
       wantDefaultTab = false
-      selectedID = Almanac.defaultTabId(sources)
+      selectedID = Cloud.defaultTabId(sources)
     } else {
-      selectedID = ok ? sel : Almanac.defaultTabId(sources)
+      selectedID = ok ? sel : Cloud.defaultTabId(sources)
     }
     applySelection()
     if (next.length !== before || selectedID !== sel) persistSources()
@@ -338,17 +339,17 @@ Item {
     query = ""
     editingId = ""
     ctx = null
-    if (Almanac.isAlmanacSource(src)) {
+    if (Cloud.isCloudSource(src)) {
       filePath = ""
       lines = []
       fileMissing = false
       sections = []
       noteOpenCount(0)
       completedCount = 0
-      almanacReload()
+      cloudReload()
       return
     }
-    // Queued Almanac writes keep draining in the background.
+    // Queued Cloud writes keep draining in the background.
     writeBusy = false
     listBusy = false
     filePath = src.path
@@ -359,7 +360,7 @@ Item {
   function selectDefaultTab() {
     wantDefaultTab = true
     if (!sourcesReady) return
-    var id = Almanac.defaultTabId(sources)
+    var id = Cloud.defaultTabId(sources)
     wantDefaultTab = false
     if (!id || selectedID === id) return
     selectSource(id)
@@ -373,8 +374,8 @@ Item {
   }
 
   function addSource(path) {
-    if (Almanac.isAlmanacPath(path)) {
-      addAlmanacSource(path)
+    if (Cloud.isCloudPath(path)) {
+      addCloudSource(path)
       return
     }
     var resolved = expandPath(path)
@@ -392,21 +393,21 @@ Item {
     applySelection()
   }
 
-  function addAlmanacSource(path) {
-    var cal = Almanac.resolveCalendar(almanacCalendars, Almanac.pathCalendarId(path))
+  function addCloudSource(path) {
+    var cal = Cloud.resolveCalendar(cloudCalendars, Cloud.pathCalendarId(path))
     if (!cal) {
       lastError = "No Agent Cloud calendar"
       return
     }
-    almanacHidden = false
+    cloudHidden = false
     for (var i = 0; i < sources.length; i++) {
-      if (Almanac.isAlmanacSource(sources[i]) && Almanac.calendarIdOf(sources[i]) === cal.id) {
+      if (Cloud.isCloudSource(sources[i]) && Cloud.calendarIdOf(sources[i]) === cal.id) {
         selectSource(sources[i].id)
         persistSources()
         return
       }
     }
-    var src = Almanac.makeSource(cal, newId())
+    var src = Cloud.makeSource(cal, newId())
     sources = sources.concat([src])
     selectedID = src.id
     persistSources()
@@ -423,7 +424,7 @@ Item {
       next.push(sources[i])
     }
     if (idx < 0 || next.length === 0) return
-    if (removed && Almanac.isAlmanacSource(removed)) almanacHidden = true
+    if (removed && Cloud.isCloudSource(removed)) cloudHidden = true
     sources = next
     if (selectedID === id) selectedID = next[Math.min(idx, next.length - 1)].id
     persistSources()
@@ -439,7 +440,7 @@ Item {
       if (src.id !== id) { next.push(src); continue }
       next.push({
         id: src.id,
-        kind: src.kind || (Almanac.isAlmanacSource(src) ? "almanac" : "file"),
+        kind: src.kind || (Cloud.isCloudSource(src) ? "cloud" : "file"),
         title: name,
         path: src.path || "",
         calendarId: src.calendarId || ""
@@ -449,183 +450,183 @@ Item {
     persistSources()
   }
 
-  function almanacCalendarId() {
+  function cloudCalendarId() {
     var src = selectedSource()
-    return src ? Almanac.calendarIdOf(src) : ""
+    return src ? Cloud.calendarIdOf(src) : ""
   }
 
-  function almanacReload() {
-    if (!isAlmanac) return
-    if (almanacBusy || almanacQueue.length) return
-    var cal = almanacCalendarId()
+  function cloudReload() {
+    if (!isCloud) return
+    if (cloudBusy || cloudQueue.length) return
+    var cal = cloudCalendarId()
     if (!cal) {
       lastError = "No Agent Cloud calendar"
-      applyAlmanacSections([])
+      applyCloudSections([])
       return
     }
-    almanacToken += 1
+    cloudToken += 1
     listBusy = true
     lastError = ""
-    almanacRemote.list(cal, almanacToken)
+    cloudRemote.list(cal, cloudToken)
   }
 
-  function applyAlmanacSections(next) {
+  function applyCloudSections(next) {
     sections = next
-    noteOpenCount(Almanac.countOpen(next))
-    completedCount = Almanac.countCompleted(next)
+    noteOpenCount(Cloud.countOpen(next))
+    completedCount = Cloud.countCompleted(next)
     fileMissing = false
   }
 
-  function applyAlmanacList(body) {
-    var next = Almanac.parseTodos(body)
+  function applyCloudList(body) {
+    var next = Cloud.parseTodos(body)
     var revs = {}
     for (var s = 0; s < next.length; s++) {
       var items = next[s].items || []
       for (var i = 0; i < items.length; i++) if (items[i].uid && items[i].rev) revs[items[i].uid] = items[i].rev
     }
-    almanacRevs = revs
-    applyAlmanacSections(next)
+    cloudRevs = revs
+    applyCloudSections(next)
   }
 
-  function almanacRevOf(uid) {
-    return uid && almanacRevs[uid] ? almanacRevs[uid] : 0
+  function cloudRevOf(uid) {
+    return uid && cloudRevs[uid] ? cloudRevs[uid] : 0
   }
 
-  function setAlmanacRev(uid, rev) {
+  function setCloudRev(uid, rev) {
     if (!uid) return
-    var next = Object.assign({}, almanacRevs)
+    var next = Object.assign({}, cloudRevs)
     if (rev) next[uid] = rev
     else delete next[uid]
-    almanacRevs = next
+    cloudRevs = next
   }
 
-  function startAlmanacWrite(op, payload, status) {
-    var cal = almanacCalendarId()
+  function startCloudWrite(op, payload, status) {
+    var cal = cloudCalendarId()
     if (!cal) {
       lastError = "No Agent Cloud calendar"
       return
     }
     lastError = ""
     if (status) lastStatus = status
-    var next = almanacQueue.slice()
+    var next = cloudQueue.slice()
     next.push({ op: op, cal: cal, payload: payload || {} })
-    almanacQueue = next
-    kickAlmanacWrite()
+    cloudQueue = next
+    kickCloudWrite()
   }
 
   // Start the next queued write. The rev is read now, so a write after our own sees its new rev.
-  function kickAlmanacWrite() {
-    if (almanacBusy || !almanacQueue.length) return
-    var job = almanacQueue[0]
-    almanacQueue = almanacQueue.slice(1)
+  function kickCloudWrite() {
+    if (cloudBusy || !cloudQueue.length) return
+    var job = cloudQueue[0]
+    cloudQueue = cloudQueue.slice(1)
     var payload = job.payload || {}
     var body = payload.body || {}
     var uid = payload.uid || body.uid || ""
-    almanacBusy = true
-    almanacToken += 1
-    job.token = almanacToken
+    cloudBusy = true
+    cloudToken += 1
+    job.token = cloudToken
     job.uid = uid
-    job.rev = payload.rev || almanacRevOf(uid)
-    job.path = job.op === "delete" ? "" : almanacBodyDir + "/agentcloud-todos-almanac-body-" + job.token + ".json"
-    activeAlmanac = job
+    job.rev = payload.rev || cloudRevOf(uid)
+    job.path = job.op === "delete" ? "" : cloudBodyDir + "/agentcloud-todos-body-" + job.token + ".json"
+    activeCloud = job
     if (job.op === "delete") {
-      almanacRemote.remove(job.cal, uid, job.token, job.rev)
+      cloudRemote.remove(job.cal, uid, job.token, job.rev)
       return
     }
     var wire = {}
     if (uid) wire.uid = uid
     if (body.title !== undefined) wire.title = body.title
     if (body.done !== undefined) wire.done = body.done
-    pendingAlmanac = job
-    almanacBodyFile.path = job.path
+    pendingCloud = job
+    cloudBodyFile.path = job.path
     var text = JSON.stringify(wire) + "\n"
     var token = job.token
     Qt.callLater(function () {
-      if (!pendingAlmanac || pendingAlmanac.token !== token) return
-      almanacBodyFile.setText(text)
+      if (!pendingCloud || pendingCloud.token !== token) return
+      cloudBodyFile.setText(text)
     })
   }
 
-  function startPendingAlmanac() {
-    var job = pendingAlmanac
-    pendingAlmanac = null
+  function startPendingCloud() {
+    var job = pendingCloud
+    pendingCloud = null
     if (!job) return
-    if (job.op === "post") almanacRemote.post(job.cal, job.path, job.token, job.rev)
-    else if (job.op === "patch") almanacRemote.patch(job.cal, job.uid, job.path, job.token, job.rev)
+    if (job.op === "post") cloudRemote.post(job.cal, job.path, job.token, job.rev)
+    else if (job.op === "patch") cloudRemote.patch(job.cal, job.uid, job.path, job.token, job.rev)
   }
 
-  function failPendingAlmanac(err) {
-    pendingAlmanac = null
+  function failPendingCloud(err) {
+    pendingCloud = null
     lastError = err || "Could not write Agent Cloud request"
-    finishAlmanacWrite()
+    finishCloudWrite()
   }
 
-  function finishAlmanacWrite() {
-    var job = activeAlmanac
-    activeAlmanac = null
-    almanacBusy = false
+  function finishCloudWrite() {
+    var job = activeCloud
+    activeCloud = null
+    cloudBusy = false
     if (job && job.path) removeBodyFile(job.path)
-    if (almanacQueue.length) {
-      kickAlmanacWrite()
+    if (cloudQueue.length) {
+      kickCloudWrite()
       return
     }
-    if (almanacChanged) {
+    if (cloudChanged) {
       // The queue drained: reload once.
-      almanacChanged = false
+      cloudChanged = false
       pendingCompleteReload = true
       finishCompleteAnim()
     }
   }
 
   // Put a write at the head of the queue, ahead of the writes queued after the one that failed.
-  function requeueAlmanac(op, cal, payload) {
-    almanacQueue = [{ op: op, cal: cal, payload: payload }].concat(almanacQueue)
+  function requeueCloud(op, cal, payload) {
+    cloudQueue = [{ op: op, cal: cal, payload: payload }].concat(cloudQueue)
   }
 
-  // A write hit a stale rev (HTTP 412). The server copy stays; see Almanac.conflictRetry.
+  // A write hit a stale rev (HTTP 412). The server copy stays; see Cloud.conflictRetry.
   function keepConflictedWrite(job, info) {
-    var retry = Almanac.conflictRetry(job, info)
-    if (retry) requeueAlmanac(retry.op, job.cal, retry.payload)
+    var retry = Cloud.conflictRetry(job, info)
+    if (retry) requeueCloud(retry.op, job.cal, retry.payload)
   }
 
-  function onAlmanacFinished(op, ok, body, token) {
-    if (token !== almanacToken) {
+  function onCloudFinished(op, ok, body, token) {
+    if (token !== cloudToken) {
       if (op === "list") listBusy = false
       return
     }
     if (op === "list") {
       listBusy = false
-      if (!isAlmanac) return
+      if (!isCloud) return
       if (!ok) {
-        lastError = Almanac.errorMessage(body)
+        lastError = Cloud.errorMessage(body)
         return
       }
       lastError = ""
-      applyAlmanacList(body)
+      applyCloudList(body)
       return
     }
-    var job = activeAlmanac
-    if (!ok && Almanac.isConflict(body)) {
+    var job = activeCloud
+    if (!ok && Cloud.isConflict(body)) {
       // Changed elsewhere since our last read: keep both versions, reload and say so.
       // Later writes stay queued. Our rev stays stale, so each one meets the same check.
-      if (job) keepConflictedWrite(job, Almanac.conflictInfo(body))
+      if (job) keepConflictedWrite(job, Cloud.conflictInfo(body))
       lastError = ""
       lastStatus = "Changed elsewhere, reloaded"
-      almanacChanged = true
+      cloudChanged = true
     } else if (!ok) {
-      lastError = Almanac.errorMessage(body)
+      lastError = Cloud.errorMessage(body)
       completingId = ""
       pendingCompleteReload = false
     } else {
       lastError = ""
       var saved = null
       try { saved = JSON.parse(body) } catch (e) { saved = null }
-      if (job && op === "delete") setAlmanacRev(job.uid, 0)
+      if (job && op === "delete") setCloudRev(job.uid, 0)
       // A retry sent at the server's rev leaves ours stale, so later queued edits still conflict.
-      else if (saved && saved.uid && typeof saved.rev === "number" && !(job && job.payload && job.payload.rev)) setAlmanacRev(String(saved.uid), saved.rev)
-      almanacChanged = true
+      else if (saved && saved.uid && typeof saved.rev === "number" && !(job && job.payload && job.payload.rev)) setCloudRev(String(saved.uid), saved.rev)
+      cloudChanged = true
     }
-    finishAlmanacWrite()
+    finishCloudWrite()
   }
 
   function itemKey(item) {
@@ -643,11 +644,11 @@ Item {
 
   function finishCompleteAnim() {
     if (!completeAnimDone) return
-    if (isAlmanac && !pendingCompleteReload && almanacBusy) return
+    if (isCloud && !pendingCompleteReload && cloudBusy) return
     completingId = ""
     if (pendingCompleteReload) {
       pendingCompleteReload = false
-      almanacReload()
+      cloudReload()
     }
   }
 
@@ -713,24 +714,24 @@ Item {
   }
 
   function addTodo(text) {
-    if (isAlmanac) {
-      startAlmanacWrite("post", { body: { title: trim(text) } }, "Added")
+    if (isCloud) {
+      startCloudWrite("post", { body: { title: trim(text) } }, "Added")
       return
     }
     mutate(function () { return Doc.addItem(lines, text) }, "Added", "Add", text)
   }
 
   function complete(item) {
-    if (writeBusy && !isAlmanac) return
+    if (writeBusy && !isCloud) return
     beginCompleteAnim(item, !item.isCompleted)
-    if (isAlmanac) {
+    if (isCloud) {
       var uid = item.uid || ""
       if (!uid) {
         lastError = "Agent Cloud todo missing uid"
         completingId = ""
         return
       }
-      startAlmanacWrite("post", { uid: uid, toggle: true, body: { title: trim(item.text), done: !item.isCompleted } }, "")
+      startCloudWrite("post", { uid: uid, toggle: true, body: { title: trim(item.text), done: !item.isCompleted } }, "")
       return
     }
     mutate(function () {
@@ -748,13 +749,13 @@ Item {
   }
 
   function saveEdit(item, text) {
-    if (isAlmanac) {
+    if (isCloud) {
       var uid = item.uid || ""
       if (!uid) {
         lastError = "Agent Cloud todo missing uid"
         return
       }
-      startAlmanacWrite("post", { uid: uid, body: { title: trim(text), done: !!item.isCompleted } }, "Edited")
+      startCloudWrite("post", { uid: uid, body: { title: trim(text), done: !!item.isCompleted } }, "Edited")
       return
     }
     mutate(function () {
@@ -763,8 +764,8 @@ Item {
   }
 
   function deleteTodo(item) {
-    if (isAlmanac) {
-      startAlmanacWrite("delete", { uid: item.uid || item.id }, "Deleted")
+    if (isCloud) {
+      startCloudWrite("delete", { uid: item.uid || item.id }, "Deleted")
       return
     }
     mutate(function () {
@@ -773,12 +774,12 @@ Item {
   }
 
   function moveItem(item, direction) {
-    if (isAlmanac) return
+    if (isCloud) return
     mutate(function () { return Doc.moveOpenItem(lines, item, direction) }, "Reordered", "Reorder", item.section)
   }
 
   function reorderOpen(item, destIndex) {
-    if (isAlmanac) return
+    if (isCloud) return
     if (!item || item.isCompleted) return
     if (trim(query).length > 0) return
     var open = []
@@ -913,17 +914,17 @@ Item {
   }
 
   function reload() {
-    if (isAlmanac) almanacReload()
+    if (isCloud) cloudReload()
     else todoFile.reload()
   }
 
   function openInEditor() {
-    if (isAlmanac || filePath === "") return
+    if (isCloud || filePath === "") return
     Util.execArgv(["omarchy-launch-editor", filePath])
   }
 
   function reveal() {
-    if (isAlmanac || filePath === "") return
+    if (isCloud || filePath === "") return
     Util.execArgv(["xdg-open", dirname(filePath)])
   }
 
@@ -972,7 +973,7 @@ Item {
     if (!ctx) return []
     if (ctx.kind === "tab") {
       var rows = ["Rename…"]
-      if (ctx.source && !Almanac.isAlmanacSource(ctx.source)) rows.push("Reveal")
+      if (ctx.source && !Cloud.isCloudSource(ctx.source)) rows.push("Reveal")
       if (sources.length > 1) rows.push("Remove Tab")
       return rows
     }
@@ -1112,7 +1113,7 @@ Item {
 
   Process {
     id: bodyDirProc
-    command: ["mkdir", "-p", "-m", "700", root.almanacBodyDir]
+    command: ["mkdir", "-p", "-m", "700", root.cloudBodyDir]
   }
 
   // Removes request bodies after each write. Paths queue while one rm runs.
@@ -1138,15 +1139,15 @@ Item {
 
   // Every minute while shown. Skips while a write is queued or a list is loading.
   Timer {
-    id: almanacPollTimer
+    id: cloudPollTimer
     interval: 60000
     repeat: true
-    running: root.shown && root.isAlmanac
+    running: root.shown && root.isCloud
     onTriggered: {
       // Picks up a credentials file written at the Agent Cloud path after the window opened.
       if (!root.calendarsPrimary) calendarsFile.reload()
-      if (root.almanacBusy || root.listBusy || root.almanacQueue.length || root.editingId !== "") return
-      root.almanacReload()
+      if (root.cloudBusy || root.listBusy || root.cloudQueue.length || root.editingId !== "") return
+      root.cloudReload()
     }
   }
 
@@ -1279,17 +1280,17 @@ Item {
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onFileChanged: if (!root.suppressWatch && !root.isAlmanac) todoFile.reload()
-    onLoaded: if (!root.suppressWatch && !root.isAlmanac) root.applyText(text())
-    onLoadFailed: if (!root.isAlmanac && root.filePath !== "") root.applyMissing()
+    onFileChanged: if (!root.suppressWatch && !root.isCloud) todoFile.reload()
+    onLoaded: if (!root.suppressWatch && !root.isCloud) root.applyText(text())
+    onLoadFailed: if (!root.isCloud && root.filePath !== "") root.applyMissing()
   }
 
   function applyCalendars(raw) {
-    almanacCalendars = Almanac.parseCalendars(raw)
-    maybeInsertAlmanac()
+    cloudCalendars = Cloud.parseCalendars(raw)
+    maybeInsertCloud()
   }
 
-  // Same choice as almanac-lib.sh: the Agent Cloud file when it exists, else the old almanac one.
+  // Same choice as cloud-lib.sh: the Agent Cloud file when it exists, else the old almanac one.
   FileView {
     id: calendarsFile
     path: root.calendarsPath
@@ -1331,18 +1332,18 @@ Item {
   }
 
   FileView {
-    id: almanacBodyFile
+    id: cloudBodyFile
     watchChanges: false
     atomicWrites: true
     printErrors: false
-    onSaved: root.startPendingAlmanac()
-    onSaveFailed: root.failPendingAlmanac("Could not write Agent Cloud request")
+    onSaved: root.startPendingCloud()
+    onSaveFailed: root.failPendingCloud("Could not write Agent Cloud request")
   }
 
-  AlmanacRemote {
-    id: almanacRemote
+  CloudRemote {
+    id: cloudRemote
     onFinished: function (op, ok, body, token) {
-      root.onAlmanacFinished(op, ok, body, token)
+      root.onCloudFinished(op, ok, body, token)
     }
   }
 
@@ -1586,7 +1587,7 @@ Item {
                     item: modelData
                     openIndex: index
                     striped: index % 2 === 1
-                    draggable: !root.isAlmanac && !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
+                    draggable: !root.isCloud && !modelData.isCompleted && root.trim(root.query).length === 0 && !root.isBusy
                     dragging: root.rowDragging && root.dragItem && root.dragItem.id === modelData.id
                     listDragging: root.rowDragging
                     animateShift: root.animateShift
@@ -1670,7 +1671,7 @@ Item {
               width: parent.width
               topPadding: Style.space(40)
               horizontalAlignment: Text.AlignHCenter
-              text: root.trim(root.query).length > 0 ? "No matches" : (root.isAlmanac ? "No open Agent Cloud todos" : "No open todos in this file")
+              text: root.trim(root.query).length > 0 ? "No matches" : (root.isCloud ? "No open Agent Cloud todos" : "No open todos in this file")
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: root.fontBody
@@ -1813,7 +1814,7 @@ Item {
                 onClicked: root.refresh()
               }
               HeaderButton {
-                visible: !root.isAlmanac
+                visible: !root.isCloud
                 height: parent.height
                 iconText: "󰈙"
                 tooltipText: "Open file"

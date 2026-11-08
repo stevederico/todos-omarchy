@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Sequential Agent Cloud HTTP via scripts/almanac-todos.sh. Key never leaves that script.
+// Sequential Agent Cloud HTTP via scripts/cloud-todos.sh. Key never leaves that script.
 Item {
   id: root
 
@@ -13,7 +13,7 @@ Item {
   signal finished(string op, bool ok, string body, int token)
 
   function scriptPath() {
-    var url = String(Qt.resolvedUrl("scripts/almanac-todos.sh") || "")
+    var url = String(Qt.resolvedUrl("scripts/cloud-todos.sh") || "")
     if (url.indexOf("file://") === 0) return url.slice(7)
     return url
   }
