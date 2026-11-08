@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
-# Talk to Almanac hosted todos. Key stays in the config file; never printed.
-# Commands: list | post | patch | delete
+# Talk to Almanac hosted todos through almanac-lib.sh.
+# The key stays in the config file; requests carry its token on curl's stdin.
+#
+#   list
+#   post   --body-file FILE [--rev REV]   (a body with a uid updates that todo)
+#   patch  --uid UID --body-file FILE [--rev REV]
+#   delete --uid UID [--rev REV]
+#
+# Updates keep the fields the body leaves out. Prints JSON on success,
+# `ERROR:<text>` otherwise. A stale --rev prints `ERROR:conflict`. Sealed
+# todos are opened before they are printed.
 set -u
 
 fail() {
@@ -8,13 +17,15 @@ fail() {
   exit 1
 }
 
-UA="${ALMANAC_UA:-Mozilla/5.0 dottie-todo-omarchy}"
-CONFIG="${ALMANAC_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/almanac/hosted-calendars.json}"
-BASE="${ALMANAC_BASE:-https://almanac.dottie.ai}"
+ALMANAC_UA="${ALMANAC_UA:-Mozilla/5.0 dottie-todo-omarchy}"
+# shellcheck source=almanac-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/almanac-lib.sh" || fail "Almanac library missing"
+
 CMD=""
 CAL=""
 ITEM=""
 BODYFILE=""
+REV=""
 
 while (( $# > 0 )); do
   case "$1" in
@@ -23,302 +34,156 @@ while (( $# > 0 )); do
       CMD="$1"
       shift
       ;;
-    --cal)
-      CAL="${2-}"
-      shift 2
-      ;;
-    --uid)
-      ITEM="${2-}"
-      shift 2
-      ;;
-    --body-file)
-      BODYFILE="${2-}"
-      shift 2
-      ;;
-    -*)
-      fail "unknown option"
-      ;;
-    *)
-      fail "usage"
-      ;;
+    --cal) CAL="${2-}"; shift 2 ;;
+    --uid) ITEM="${2-}"; shift 2 ;;
+    --body-file) BODYFILE="${2-}"; shift 2 ;;
+    --rev) REV="${2-}"; shift 2 ;;
+    -*) fail "unknown option" ;;
+    *) fail "usage" ;;
   esac
 done
 
 [[ -n $CMD ]] || fail "usage"
-[[ -f $CONFIG ]] || fail "No Almanac calendar"
 if [[ $CMD == post || $CMD == patch ]]; then
-  [[ -n "$BODYFILE" && -f "$BODYFILE" ]] || fail "body file required"
+  [[ -n $BODYFILE && -f $BODYFILE ]] || fail "body file required"
 fi
 if [[ $CMD == patch || $CMD == delete ]]; then
-  [[ -n "$ITEM" ]] || fail "uid required"
+  [[ -n $ITEM ]] || fail "uid required"
 fi
+[[ -z $REV || $REV =~ ^[0-9]+$ ]] || fail "bad rev"
 
-export ALMANAC_CONFIG="$CONFIG"
-export ALMANAC_CAL="$CAL"
-CREDS=$(python3 - <<'PY'
-import json, os, sys
-from pathlib import Path
-path = Path(os.environ["ALMANAC_CONFIG"])
-want = os.environ.get("ALMANAC_CAL", "").strip()
+almanac_load "$CAL" || fail "No Almanac calendar"
+TODOS="$ALMANAC_ROOT/todos"
+OUT=$(almanac_tmp) || fail "Almanac request failed"
+CODE=""
+
+# request METHOD URL [BODY_FILE] [IF_MATCH_REV]
+request() {
+  CODE=$(almanac_curl "$1" "$2" "$OUT" "${3-}" "${4-}") || fail "Almanac request failed"
+}
+
+new_uid() {
+  python3 -c 'import json, sys, uuid
 try:
-    raw = json.loads(path.read_text())
+    d = json.load(open(sys.argv[1]))
 except Exception:
-    sys.exit(1)
-if isinstance(raw, list):
-    rows = raw
-elif isinstance(raw, dict) and isinstance(raw.get("calendars"), list):
-    rows = raw["calendars"]
-elif isinstance(raw, dict):
-    rows = [raw]
-else:
-    rows = []
-for row in rows:
-    if not isinstance(row, dict):
-        continue
-    cid = str(row.get("id") or "")
-    key = str(row.get("key") or "")
-    write = str(row.get("write") or "")
-    if not cid or not key:
-        continue
-    if want and cid != want:
-        continue
-    sys.stdout.write(key + "\n" + cid + "\n" + write + "\n")
-    sys.exit(0)
-sys.exit(1)
-PY
-) || fail "No Almanac calendar"
-
-KEY=$(printf '%s\n' "$CREDS" | sed -n '1p')
-CAL_ID=$(printf '%s\n' "$CREDS" | sed -n '2p')
-WRITE=$(printf '%s\n' "$CREDS" | sed -n '3p')
-unset CREDS
-
-if [[ $WRITE == */events ]]; then
-  TODOS="${WRITE%/events}/todos"
-elif [[ $WRITE == */events/ ]]; then
-  TODOS="${WRITE%/events/}/todos"
-else
-  TODOS="${BASE%/}/v1/c/${CAL_ID}/todos"
-fi
-
-supports_seal() {
-  [[ -x $1 ]] && strings "$1" | grep -q 'almanac-seal-v1'
+    d = {}
+uid = str(d.get("uid") or "").strip() if isinstance(d, dict) else ""
+sys.stdout.write(uid or "todo-" + uuid.uuid4().hex)' "$1"
 }
 
-find_bin() {
-  if [[ -n ${ALMANAC_BIN:-} ]]; then
-    supports_seal "$ALMANAC_BIN" && printf '%s\n' "$ALMANAC_BIN" && return 0
-    return 1
-  fi
-  local b
-  b=$(command -v almanac || true)
-  if supports_seal "$b"; then
-    printf '%s\n' "$b"
-    return 0
-  fi
-  for b in "$HOME/Projects/almanac/target/release/almanac" "$HOME/Projects/almanac/target/debug/almanac"; do
-    if supports_seal "$b"; then
-      printf '%s\n' "$b"
-      return 0
-    fi
-  done
-  return 1
+# Print the reply, opened. Map errors to ERROR: lines.
+finish() {
+  local err
+  case "$CODE" in
+    200|201)
+      if [[ ! -s $OUT ]]; then
+        printf '%s\n' '{"ok":true}'
+      else
+        almanac_open todo <"$OUT" || fail "sealed calendar needs the almanac binary"
+      fi
+      exit 0
+      ;;
+    204)
+      printf '%s\n' '{"ok":true}'
+      exit 0
+      ;;
+    412) fail "conflict" ;;
+  esac
+  err=$(almanac_error "$OUT")
+  case "$CODE" in
+    400) fail "${err:-bad todo}" ;;
+    401) fail "${err:-Almanac key rejected}" ;;
+    403) fail "${err:-Almanac blocked}" ;;
+    404) fail "${err:-not found}" ;;
+    409) fail "${err:-todo list is full}" ;;
+    429) fail "${err:-rate limit exceeded}" ;;
+  esac
+  fail "${err:-Almanac HTTP ${CODE}}"
 }
 
-feed_mode() {
-  local info
-  info=$(curl -sS --max-time 20 -A "$UA" -H "Authorization: Bearer ${KEY}" "${TODOS%/*}") || return 1
-  printf '%s' "$info" | python3 -c 'import json,sys
-try:
-    data=json.loads(sys.stdin.read() or "{}")
-except Exception:
-    sys.exit(1)
-sys.stdout.write(str(data.get("feed") or "plain") if isinstance(data, dict) else "plain")'
-}
-
-open_body() {
-  local bin
-  bin=$(find_bin) || fail "sealed calendar needs the almanac binary"
-  ALMANAC_CREDS="$CONFIG" SEAL_BIN="$bin" SEAL_CAL="$CAL_ID" SEAL_KIND="todo" python3 -c 'import json, os, subprocess, sys
-raw = sys.stdin.read()
-data = json.loads(raw)
-binary = os.environ["SEAL_BIN"]
-cal = os.environ["SEAL_CAL"]
-creds = os.environ["ALMANAC_CREDS"]
-
-def open_one(item):
-    if not isinstance(item, dict) or not item.get("seal"):
-        return item
-    uid = str(item.get("uid") or "")
-    env = os.environ.copy()
-    env["ALMANAC_CREDS"] = creds
-    proc = subprocess.run(
-        [binary, "open", "--cal", cal, "--kind", "todo", "--uid", uid],
-        input=str(item["seal"]).encode(),
-        capture_output=True,
-        env=env,
-    )
-    if proc.returncode != 0:
-        sys.exit(2)
-    plain = json.loads(proc.stdout.decode() or "{}")
-    if not isinstance(plain, dict):
-        sys.exit(2)
-    plain.pop("seal", None)
-    plain["uid"] = uid
-    for key in ("createdAt", "updatedAt"):
-        if item.get(key) and key not in plain:
-            plain[key] = item[key]
-    return plain
-
-if isinstance(data, dict) and isinstance(data.get("todos"), list):
-    data["todos"] = [open_one(row) for row in data["todos"]]
-elif isinstance(data, dict) and data.get("seal"):
-    data = open_one(data)
-json.dump(data, sys.stdout)
-sys.stdout.write("\n")' <<<"$1"
-}
-
-URL="$TODOS"
-METHOD="GET"
-FEED="plain"
-TMP=$(mktemp)
-MERGE=""
-SEALFILE=""
-trap 'rm -f "$TMP" ${MERGE:+"$MERGE"} ${SEALFILE:+"$SEALFILE"} ${OPENED_FILE:+"$OPENED_FILE"}' EXIT
-
-if [[ $CMD == post || $CMD == patch ]]; then
-  FEED=$(feed_mode) || fail "Almanac request failed"
-fi
-
-if [[ $CMD == delete ]]; then
-  METHOD="DELETE"
-  URL="${TODOS}/${ITEM}"
-elif [[ $FEED == seal && ( $CMD == post || $CMD == patch ) ]]; then
-  BIN=$(find_bin) || fail "sealed calendar needs the almanac binary"
-  if [[ $CMD == post ]]; then
-    UID_VALUE=$(python3 -c 'import json,sys,uuid
-raw=open(sys.argv[1]).read()
-try:
-    data=json.loads(raw)
-except Exception:
-    data={}
-uid=str(data.get("uid") or "").strip() if isinstance(data, dict) else ""
-if not uid:
-    uid="todo-"+uuid.uuid4().hex
-sys.stdout.write(uid)' "$BODYFILE") || fail "bad todo"
-    PLAIN="$BODYFILE"
-  else
-    UID_VALUE="$ITEM"
-    CURRENT=$(mktemp)
-    CODE=$(curl -sS --max-time 20 -A "$UA" -o "$CURRENT" -w "%{http_code}" -H "Authorization: Bearer ${KEY}" "${TODOS}/${UID_VALUE}") || fail "Almanac request failed"
-    if [[ $CODE != 200 ]]; then
-      rm -f "$CURRENT"
-      fail "not found"
-    fi
-    OPENED=$(open_body "$(cat "$CURRENT")") || fail "could not open the seal"
-    rm -f "$CURRENT"
-    MERGE=$(mktemp)
-    OPENED_FILE=$(mktemp)
-    printf '%s' "$OPENED" >"$OPENED_FILE"
-    export ITEM BODYFILE MERGE OPENED_FILE
-    python3 - <<'PY' || fail "bad todo"
-import json, os
-from pathlib import Path
-current = json.loads(Path(os.environ["OPENED_FILE"]).read_text() or "{}")
-patch = json.loads(Path(os.environ["BODYFILE"]).read_text() or "{}")
+# Merge a partial todo over the opened current one, for a sealed PUT.
+merge_into() {
+  python3 -c 'import json, sys
+current = json.load(open(sys.argv[1]))
+patch = json.load(open(sys.argv[2]))
 if not isinstance(current, dict) or not isinstance(patch, dict):
-    raise SystemExit(1)
-current.pop("seal", None)
-for key in ("createdAt", "updatedAt"):
-    current.pop(key, None)
+    sys.exit(1)
 for key, value in patch.items():
-    if key in ("uid", "seal", "createdAt", "updatedAt"):
+    if key in ("uid", "seal", "rev", "createdAt", "updatedAt", "sealed", "unreadable"):
         continue
-    if value is None or (key in ("description", "due") and value == ""):
+    if value is None or (key in ("description", "due", "tags") and value == ""):
         current.pop(key, None)
     else:
         current[key] = value
-current["uid"] = os.environ.get("ITEM", "").strip() or current.get("uid") or ""
-Path(os.environ["MERGE"]).write_text(json.dumps(current))
-PY
-    PLAIN="$MERGE"
-  fi
-  SEALFILE=$(mktemp)
-  ALMANAC_CREDS="$CONFIG" "$BIN" seal --cal "$CAL_ID" --kind todo --uid "$UID_VALUE" <"$PLAIN" >"$SEALFILE" || fail "could not seal the todo"
-  python3 -c 'import json,sys
-seal=open(sys.argv[1]).read().strip()
-json.dump({"seal": seal}, sys.stdout)' "$SEALFILE" >"$SEALFILE.body"
-  mv "$SEALFILE.body" "$SEALFILE"
-  URL="${TODOS}/${UID_VALUE}"
-  METHOD="PUT"
-  BODYFILE="$SEALFILE"
-elif [[ $CMD == post ]]; then
-  METHOD="POST"
-elif [[ $CMD == patch ]]; then
-  # WAF 403s HTTP PATCH. POST /todos with uid in the body upserts.
-  METHOD="POST"
-  MERGE=$(mktemp)
-  export ITEM BODYFILE MERGE
-  python3 - <<'PY' || fail "bad todo"
-import json, os
-from pathlib import Path
-raw = Path(os.environ["BODYFILE"]).read_text()
-data = json.loads(raw)
-if not isinstance(data, dict):
-    raise SystemExit(1)
-uid = os.environ.get("ITEM", "").strip()
-if uid:
-    data["uid"] = uid
-Path(os.environ["MERGE"]).write_text(json.dumps(data))
-PY
-  BODYFILE="$MERGE"
-fi
+json.dump(current, open(sys.argv[3], "w"))' "$1" "$2" "$3"
+}
 
-CURL_ARGS=(-sS --max-time 20 -A "$UA" -o "$TMP" -w "%{http_code}" -X "$METHOD" -H "Authorization: Bearer ${KEY}" "$URL")
-if [[ $CMD == post || $CMD == patch ]]; then
-  CURL_ARGS=(-sS --max-time 20 -A "$UA" -o "$TMP" -w "%{http_code}" -X "$METHOD" -H "Authorization: Bearer ${KEY}" -H "Content-Type: application/json" --data-binary @"$BODYFILE" "$URL")
-fi
-
-CODE=$(curl "${CURL_ARGS[@]}") || fail "Almanac request failed"
-BODY_TEXT=$(cat "$TMP")
-
-if [[ $CODE == 204 ]]; then
-  printf '%s\n' '{"ok":true}'
-  exit 0
-fi
-if [[ $CODE == 200 || $CODE == 201 ]]; then
-  if [[ -z $BODY_TEXT ]]; then
-    printf '%s\n' '{"ok":true}'
-  elif printf '%s' "$BODY_TEXT" | grep -Eq '"seal"[[:space:]]*:[[:space:]]*"alm1\.'; then
-    open_body "$BODY_TEXT" || fail "could not open the seal"
-  else
-    printf '%s\n' "$BODY_TEXT"
-  fi
-  exit 0
-fi
-
-ERR=$(python3 -c 'import json,sys
-raw=sys.stdin.read()
+# The uid in a post body, if any: a post with a uid updates that todo.
+body_uid() {
+  python3 -c 'import json, sys
 try:
-    data=json.loads(raw)
+    d = json.load(open(sys.argv[1]))
 except Exception:
-    sys.exit(1)
-err=data.get("error") if isinstance(data, dict) else None
-if err:
-    sys.stdout.write(str(err))
-    sys.exit(0)
-sys.exit(1)' <<<"$BODY_TEXT" 2>/dev/null || true)
+    d = {}
+sys.stdout.write(str(d.get("uid") or "").strip() if isinstance(d, dict) else "")' "$1"
+}
 
-if [[ $CODE == 401 ]]; then
-  fail "${ERR:-Almanac key rejected}"
+if [[ $CMD == post ]]; then
+  ITEM=$(body_uid "$BODYFILE")
+  [[ -n $ITEM ]] && CMD=patch
 fi
-if [[ $CODE == 403 ]]; then
-  fail "${ERR:-Almanac blocked}"
-fi
-if [[ $CODE == 404 ]]; then
-  fail "${ERR:-not found}"
-fi
-if [[ $CODE == 409 ]]; then
-  fail "${ERR:-todo list is full}"
-fi
-fail "${ERR:-Almanac HTTP ${CODE}}"
+
+case "$CMD" in
+  list)
+    request GET "$TODOS"
+    finish
+    ;;
+  delete)
+    request DELETE "$TODOS/$ITEM" "" "$REV"
+    finish
+    ;;
+  post)
+    FEED=$(almanac_feed) || fail "Almanac request failed"
+    if [[ $FEED == seal ]]; then
+      UID_VALUE=$(new_uid "$BODYFILE") || fail "bad todo"
+      SEALED=$(almanac_tmp) || fail "Almanac request failed"
+      almanac_seal_body todo "$UID_VALUE" "$BODYFILE" "$SEALED" || fail "could not seal the todo"
+      request PUT "$TODOS/$UID_VALUE" "$SEALED"
+    else
+      request POST "$TODOS" "$BODYFILE"
+    fi
+    finish
+    ;;
+  patch)
+    FEED=$(almanac_feed) || fail "Almanac request failed"
+    if [[ $FEED != seal ]]; then
+      # PUT keeps the fields left out. Cloudflare blocks PATCH.
+      PLAIN=$(almanac_tmp) || fail "Almanac request failed"
+      python3 -c 'import json, sys
+d = json.load(open(sys.argv[1]))
+if not isinstance(d, dict):
+    sys.exit(1)
+for k in ("uid", "rev", "createdAt", "updatedAt"):
+    d.pop(k, None)
+json.dump(d, open(sys.argv[2], "w"))' "$BODYFILE" "$PLAIN" || fail "bad todo"
+      request PUT "$TODOS/$ITEM" "$PLAIN" "$REV"
+      finish
+    fi
+    request GET "$TODOS/$ITEM"
+    [[ $CODE == 200 ]] || finish
+    CURRENT=$(almanac_tmp) || fail "Almanac request failed"
+    almanac_open todo <"$OUT" >"$CURRENT" || fail "sealed calendar needs the almanac binary"
+    read -r UNREADABLE BASE_REV < <(python3 -c 'import json, sys
+d = json.load(open(sys.argv[1]))
+print("1" if d.get("unreadable") else "0", d.get("rev") or "")' "$CURRENT")
+    [[ $UNREADABLE == 0 ]] || fail "could not open the seal"
+    MERGED=$(almanac_tmp) || fail "Almanac request failed"
+    merge_into "$CURRENT" "$BODYFILE" "$MERGED" || fail "bad todo"
+    SEALED=$(almanac_tmp) || fail "Almanac request failed"
+    almanac_seal_body todo "$ITEM" "$MERGED" "$SEALED" || fail "could not seal the todo"
+    # Without --rev, the rev just read guards the merge.
+    request PUT "$TODOS/$ITEM" "$SEALED" "${REV:-$BASE_REV}"
+    finish
+    ;;
+esac

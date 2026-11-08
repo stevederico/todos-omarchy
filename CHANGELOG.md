@@ -1,3 +1,12 @@
+0.57.0
+
+  Use shared Almanac client
+  Send auth token on stdin
+  Queue Almanac writes
+  Guard writes with rev
+  Reload on conflict
+  Refresh every minute
+
 0.56.0
 
   Default Almanac tab

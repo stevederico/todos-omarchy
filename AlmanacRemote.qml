@@ -29,16 +29,22 @@ Item {
     enqueue("list", ["list", "--cal", String(calId || "")], jobToken)
   }
 
-  function post(calId, bodyPath, jobToken) {
-    enqueue("post", ["post", "--cal", String(calId || ""), "--body-file", String(bodyPath || "")], jobToken)
+  // rev: the todo's server rev, sent as If-Match. A stale one prints ERROR:conflict.
+  function withRev(args, rev) {
+    if (rev) args.push("--rev", String(rev))
+    return args
   }
 
-  function patch(calId, uid, bodyPath, jobToken) {
-    enqueue("patch", ["patch", "--cal", String(calId || ""), "--uid", String(uid || ""), "--body-file", String(bodyPath || "")], jobToken)
+  function post(calId, bodyPath, jobToken, rev) {
+    enqueue("post", withRev(["post", "--cal", String(calId || ""), "--body-file", String(bodyPath || "")], rev), jobToken)
   }
 
-  function remove(calId, uid, jobToken) {
-    enqueue("delete", ["delete", "--cal", String(calId || ""), "--uid", String(uid || "")], jobToken)
+  function patch(calId, uid, bodyPath, jobToken, rev) {
+    enqueue("patch", withRev(["patch", "--cal", String(calId || ""), "--uid", String(uid || ""), "--body-file", String(bodyPath || "")], rev), jobToken)
+  }
+
+  function remove(calId, uid, jobToken, rev) {
+    enqueue("delete", withRev(["delete", "--cal", String(calId || ""), "--uid", String(uid || "")], rev), jobToken)
   }
 
   function kick() {

@@ -7,9 +7,11 @@ const http = require("http")
 const os = require("os")
 const path = require("path")
 const { spawn } = require("child_process")
+const crypto = require("crypto")
 
 const Almanac = require("../Almanac.js")
 const script = path.join(__dirname, "..", "scripts", "almanac-todos.sh")
+const TOKEN = crypto.createHash("sha256").update("test-key" + "almanac-auth-v1").digest("hex")
 
 test("parseCalendars keeps id and name only", () => {
   const rows = Almanac.parseCalendars(JSON.stringify([
@@ -81,7 +83,7 @@ test("ensureSource prepends Almanac once", () => {
 test("parseTodos groups by first tag, open stay first", () => {
   const sections = Almanac.parseTodos({
     todos: [
-      { uid: "todo-a", title: "Milk", done: false, tags: ["home"] },
+      { uid: "todo-a", title: "Milk", done: false, tags: ["home"], rev: 5 },
       { uid: "todo-b", title: "Call", done: true },
       { uid: "todo-c", title: "Pack", done: false, tags: ["home", "travel"] }
     ]
@@ -90,6 +92,8 @@ test("parseTodos groups by first tag, open stay first", () => {
   assert.equal(sections[0].title, "Home")
   assert.deepEqual(sections[0].items.map((i) => i.text), ["Milk", "Pack"])
   assert.equal(sections[0].items[0].uid, "todo-a")
+  assert.equal(sections[0].items[0].rev, 5)
+  assert.equal(sections[0].items[1].rev, 0)
   assert.equal(sections[1].title, "To-Dos")
   assert.equal(sections[1].items[0].isCompleted, true)
   assert.equal(Almanac.countOpen(sections), 2)
@@ -100,6 +104,7 @@ test("errorMessage reads ERROR and JSON", () => {
   assert.equal(Almanac.errorMessage("ERROR:not found"), "not found")
   assert.equal(Almanac.errorMessage(JSON.stringify({ error: "title is required" })), "title is required")
   assert.equal(Almanac.errorMessage(""), "Almanac request failed")
+  assert.equal(Almanac.errorMessage("ERROR:conflict\n"), "Changed elsewhere")
 })
 
 function listen(server) {
@@ -158,7 +163,7 @@ test("almanac-todos.sh lists with bearer and user-agent", async () => {
   assert.match(result.stdout, /Milk/)
   assert.equal(seen[0].method, "GET")
   assert.equal(seen[0].url, "/v1/c/cal_test/todos")
-  assert.equal(seen[0].auth, "Bearer test-key")
+  assert.equal(seen[0].auth, "Bearer " + TOKEN)
   assert.match(seen[0].ua, /dottie-todo-omarchy/)
   assert.equal(result.stdout.includes("test-key"), false)
 })
@@ -199,12 +204,12 @@ test("almanac-todos.sh posts a title and patches done", async () => {
   assert.equal(patched.status, 0, patched.stdout)
   assert.equal(seen[1].method, "POST")
   assert.equal(seen[1].url, "/v1/c/cal_test/todos")
-  assert.equal(seen[3].method, "POST")
-  assert.equal(seen[3].url, "/v1/c/cal_test/todos")
-  assert.match(seen[3].body, /todo-new/)
+  assert.equal(seen[3].method, "PUT")
+  assert.equal(seen[3].url, "/v1/c/cal_test/todos/todo-new")
+  assert.match(seen[3].body, /"done":\s*true/)
 })
 
-test("almanac-todos.sh posts done with uid on the collection", async () => {
+test("almanac-todos.sh puts a post with a uid to that todo", async () => {
   const seen = []
   const server = http.createServer((req, res) => {
     let raw = ""
@@ -229,10 +234,46 @@ test("almanac-todos.sh posts done with uid on the collection", async () => {
   server.close()
   fs.rmSync(dir, { recursive: true, force: true })
   assert.equal(result.status, 0, result.stdout)
-  assert.equal(seen[1].method, "POST")
-  assert.equal(seen[1].url, "/v1/c/cal_test/todos")
-  assert.match(seen[1].body, /"uid":"todo-new"/)
-  assert.match(seen[1].body, /"done":true/)
+  assert.equal(seen[1].method, "PUT")
+  assert.equal(seen[1].url, "/v1/c/cal_test/todos/todo-new")
+  assert.equal(seen[1].body.includes("uid"), false)
+  assert.match(seen[1].body, /"done":\s*true/)
+})
+
+test("almanac-todos.sh sends --rev as If-Match and maps 412 to conflict", async () => {
+  const seen = []
+  const server = http.createServer((req, res) => {
+    req.resume()
+    req.on("end", () => {
+      seen.push({ method: req.method, url: req.url, ifMatch: req.headers["if-match"] })
+      if (req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json" })
+        res.end(JSON.stringify({ id: "cal_test", feed: "plain" }))
+        return
+      }
+      res.writeHead(412, { "content-type": "application/json" })
+      res.end(JSON.stringify({ error: "changed elsewhere", deleted: false, current: { uid: "todo-1", title: "New", rev: 9 } }))
+    })
+  })
+  const port = await listen(server)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const config = writeConfig(dir, port)
+  const body = path.join(dir, "body.json")
+  fs.writeFileSync(body, JSON.stringify({ uid: "todo-1", title: "Old", done: true }))
+  const posted = await runScript(["post", "--cal", "cal_test", "--rev", "7", "--body-file", body], { ALMANAC_CONFIG: config })
+  const removed = await runScript(["delete", "--cal", "cal_test", "--uid", "todo-1", "--rev", "7"], { ALMANAC_CONFIG: config })
+  server.close()
+  fs.rmSync(dir, { recursive: true, force: true })
+  assert.equal(posted.stdout, "ERROR:conflict\n")
+  assert.notEqual(posted.status, 0)
+  assert.equal(removed.stdout, "ERROR:conflict\n")
+  const writes = seen.filter((row) => row.method !== "GET")
+  assert.deepEqual(writes.map((row) => [row.method, row.url, row.ifMatch]), [
+    ["PUT", "/v1/c/cal_test/todos/todo-1", '"7"'],
+    ["DELETE", "/v1/c/cal_test/todos/todo-1", '"7"']
+  ])
+  assert.equal(Almanac.isConflict(posted.stdout), true)
+  assert.equal(Almanac.errorMessage(posted.stdout), "Changed elsewhere")
 })
 
 test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {

@@ -94,6 +94,7 @@ Panel {
         anchors.fill: parent
         bar: root.bar
         compact: true
+        shown: root.opened
         onOpenWindowRequested: root.openWindow()
         onCloseRequested: root.close()
       }

@@ -40,6 +40,7 @@ Item {
   function injectView() {
     if (!view) return
     view.compact = false
+    view.shown = Qt.binding(function () { return window.visible })
   }
 
   function syncRemote() {

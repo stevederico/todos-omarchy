@@ -23,7 +23,8 @@ Item {
   readonly property string sourcesPath: configDir + "/sources.json"
   readonly property string calendarsPath: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/almanac/hosted-calendars.json"
   readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todo-omarchy-commit-msg"
-  readonly property string almanacBodyPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todo-omarchy-almanac-body.json"
+  // Plaintext request bodies: the private runtime dir, else a private cache dir. Removed after each write.
+  readonly property string almanacBodyDir: Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("XDG_CACHE_HOME") || (home + "/.cache")) + "/dottie-todo-omarchy")
   readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todo-omarchy-open-count"
 
   property var sources: []
@@ -54,6 +55,14 @@ Item {
   property bool wantDefaultTab: true
   property int almanacToken: 0
   property var pendingAlmanac: null
+  // Almanac writes run one at a time, in order. None is dropped.
+  property var almanacQueue: []
+  property var activeAlmanac: null
+  property bool almanacChanged: false
+  // Server rev per todo uid, sent as If-Match.
+  property var almanacRevs: ({})
+  // Set by the host: true while the panel or window is on screen.
+  property bool shown: false
   property bool completeAnimDone: true
   property bool pendingCompleteReload: false
 
@@ -329,6 +338,7 @@ Item {
       almanacReload()
       return
     }
+    dropAlmanacWrites()
     writeBusy = false
     listBusy = false
     filePath = src.path
@@ -436,7 +446,7 @@ Item {
 
   function almanacReload() {
     if (!isAlmanac) return
-    if (writeBusy) return
+    if (writeBusy || almanacQueue.length) return
     var cal = almanacCalendarId()
     if (!cal) {
       lastError = "No Almanac calendar"
@@ -457,47 +467,114 @@ Item {
   }
 
   function applyAlmanacList(body) {
-    applyAlmanacSections(Almanac.parseTodos(body))
+    var next = Almanac.parseTodos(body)
+    var revs = {}
+    for (var s = 0; s < next.length; s++) {
+      var items = next[s].items || []
+      for (var i = 0; i < items.length; i++) if (items[i].uid && items[i].rev) revs[items[i].uid] = items[i].rev
+    }
+    almanacRevs = revs
+    applyAlmanacSections(next)
+  }
+
+  function almanacRevOf(uid) {
+    return uid && almanacRevs[uid] ? almanacRevs[uid] : 0
+  }
+
+  function setAlmanacRev(uid, rev) {
+    if (!uid) return
+    var next = Object.assign({}, almanacRevs)
+    if (rev) next[uid] = rev
+    else delete next[uid]
+    almanacRevs = next
   }
 
   function startAlmanacWrite(op, payload, status) {
-    if (writeBusy) return
     var cal = almanacCalendarId()
     if (!cal) {
       lastError = "No Almanac calendar"
       return
     }
-    writeBusy = true
     lastError = ""
     if (status) lastStatus = status
+    var next = almanacQueue.slice()
+    next.push({ op: op, cal: cal, payload: payload || {} })
+    almanacQueue = next
+    kickAlmanacWrite()
+  }
+
+  // Start the next queued write. The rev is read now, so a write after our own sees its new rev.
+  function kickAlmanacWrite() {
+    if (writeBusy || !almanacQueue.length) return
+    var job = almanacQueue[0]
+    almanacQueue = almanacQueue.slice(1)
+    var payload = job.payload || {}
+    var body = payload.body || {}
+    var uid = payload.uid || body.uid || ""
+    writeBusy = true
     almanacToken += 1
-    pendingAlmanac = { op: op, cal: cal, token: almanacToken, payload: payload || {} }
-    if (op === "delete") {
-      almanacRemote.remove(cal, payload.uid, almanacToken)
-      pendingAlmanac = null
+    job.token = almanacToken
+    job.uid = uid
+    job.rev = almanacRevOf(uid)
+    job.path = job.op === "delete" ? "" : almanacBodyDir + "/dottie-todo-omarchy-almanac-body-" + job.token + ".json"
+    activeAlmanac = job
+    if (job.op === "delete") {
+      almanacRemote.remove(job.cal, uid, job.token, job.rev)
       return
     }
-    var body = payload.body || {}
-    var wire = { _n: almanacToken }
-    if (payload.uid) wire.uid = payload.uid
-    if (body.uid !== undefined) wire.uid = body.uid
+    var wire = {}
+    if (uid) wire.uid = uid
     if (body.title !== undefined) wire.title = body.title
     if (body.done !== undefined) wire.done = body.done
-    almanacBodyFile.setText(JSON.stringify(wire) + "\n")
+    pendingAlmanac = job
+    almanacBodyFile.path = job.path
+    var text = JSON.stringify(wire) + "\n"
+    var token = job.token
+    Qt.callLater(function () {
+      if (!pendingAlmanac || pendingAlmanac.token !== token) return
+      almanacBodyFile.setText(text)
+    })
   }
 
   function startPendingAlmanac() {
     var job = pendingAlmanac
     pendingAlmanac = null
     if (!job) return
-    if (job.op === "post") almanacRemote.post(job.cal, almanacBodyPath, job.token)
-    else if (job.op === "patch") almanacRemote.patch(job.cal, job.payload.uid, almanacBodyPath, job.token)
+    if (job.op === "post") almanacRemote.post(job.cal, job.path, job.token, job.rev)
+    else if (job.op === "patch") almanacRemote.patch(job.cal, job.uid, job.path, job.token, job.rev)
   }
 
   function failPendingAlmanac(err) {
     pendingAlmanac = null
     lastError = err || "Could not write Almanac request"
+    finishAlmanacWrite()
+  }
+
+  function finishAlmanacWrite() {
+    var job = activeAlmanac
+    activeAlmanac = null
     writeBusy = false
+    if (job && job.path) removeBodyFile(job.path)
+    if (almanacQueue.length) {
+      kickAlmanacWrite()
+      return
+    }
+    if (almanacChanged) {
+      // The queue drained: reload once.
+      almanacChanged = false
+      pendingCompleteReload = true
+      finishCompleteAnim()
+    }
+  }
+
+  // Leaving the Almanac tab for a file: forget queued writes and ignore a reply in flight.
+  function dropAlmanacWrites() {
+    if (activeAlmanac && activeAlmanac.path) removeBodyFile(activeAlmanac.path)
+    if (activeAlmanac) almanacToken += 1
+    almanacQueue = []
+    pendingAlmanac = null
+    activeAlmanac = null
+    almanacChanged = false
   }
 
   function onAlmanacFinished(op, ok, body, token) {
@@ -505,21 +582,44 @@ Item {
       if (op === "list") listBusy = false
       return
     }
-    if (op === "list") listBusy = false
-    else writeBusy = false
-    if (!ok) {
-      lastError = Almanac.errorMessage(body)
-      completingId = ""
-      pendingCompleteReload = false
-      return
-    }
-    lastError = ""
     if (op === "list") {
+      listBusy = false
+      if (!ok) {
+        lastError = Almanac.errorMessage(body)
+        return
+      }
+      lastError = ""
       applyAlmanacList(body)
       return
     }
-    pendingCompleteReload = true
-    finishCompleteAnim()
+    var job = activeAlmanac
+    if (!ok && Almanac.isConflict(body)) {
+      // Changed elsewhere since our last read: reload and say so.
+      if (job) {
+        setAlmanacRev(job.uid, 0)
+        var rest = []
+        for (var q = 0; q < almanacQueue.length; q++) {
+          var queued = almanacQueue[q].payload || {}
+          if ((queued.uid || (queued.body && queued.body.uid) || "") !== job.uid) rest.push(almanacQueue[q])
+        }
+        almanacQueue = rest
+      }
+      lastError = ""
+      lastStatus = "Changed elsewhere, reloaded"
+      almanacChanged = true
+    } else if (!ok) {
+      lastError = Almanac.errorMessage(body)
+      completingId = ""
+      pendingCompleteReload = false
+    } else {
+      lastError = ""
+      var saved = null
+      try { saved = JSON.parse(body) } catch (e) { saved = null }
+      if (job && op === "delete") setAlmanacRev(job.uid, 0)
+      else if (saved && saved.uid && typeof saved.rev === "number") setAlmanacRev(String(saved.uid), saved.rev)
+      almanacChanged = true
+    }
+    finishAlmanacWrite()
   }
 
   function itemKey(item) {
@@ -615,7 +715,7 @@ Item {
   }
 
   function complete(item) {
-    if (writeBusy) return
+    if (writeBusy && !isAlmanac) return
     beginCompleteAnim(item, !item.isCompleted)
     if (isAlmanac) {
       var uid = item.uid || ""
@@ -1001,6 +1101,45 @@ Item {
   Process {
     id: mkdirProc
     command: ["mkdir", "-p", root.configDir]
+    onExited: bodyDirProc.running = true
+  }
+
+  Process {
+    id: bodyDirProc
+    command: ["mkdir", "-p", "-m", "700", root.almanacBodyDir]
+  }
+
+  // Removes request bodies after each write. Paths queue while one rm runs.
+  property var rmPaths: []
+
+  function removeBodyFile(path) {
+    if (!path) return
+    rmPaths = rmPaths.concat([path])
+    if (!deleteProc.running) runRemove()
+  }
+
+  function runRemove() {
+    if (!rmPaths.length) return
+    deleteProc.command = ["rm", "-f"].concat(rmPaths)
+    rmPaths = []
+    deleteProc.running = true
+  }
+
+  Process {
+    id: deleteProc
+    onExited: root.runRemove()
+  }
+
+  // Every minute while shown. Skips while a write is queued or a list is loading.
+  Timer {
+    id: almanacPollTimer
+    interval: 60000
+    repeat: true
+    running: root.shown && root.isAlmanac
+    onTriggered: {
+      if (root.writeBusy || root.listBusy || root.almanacQueue.length || root.editingId !== "") return
+      root.almanacReload()
+    }
   }
 
   Process {
@@ -1132,7 +1271,6 @@ Item {
 
   FileView {
     id: almanacBodyFile
-    path: root.almanacBodyPath
     watchChanges: false
     atomicWrites: true
     printErrors: false

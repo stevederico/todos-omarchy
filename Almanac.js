@@ -110,7 +110,8 @@ function itemFromTodo(todo) {
     due: todo && todo.due ? String(todo.due) : "",
     priority: todo && typeof todo.priority === "number" ? todo.priority : 0,
     tags: (todo && todo.tags) || [],
-    description: todo && todo.description ? String(todo.description) : ""
+    description: todo && todo.description ? String(todo.description) : "",
+    rev: todo && typeof todo.rev === "number" ? todo.rev : 0
   }
 }
 
@@ -155,8 +156,14 @@ function countCompleted(sections) {
   return n
 }
 
+// The script prints ERROR:conflict when a --rev is stale (HTTP 412).
+function isConflict(raw) {
+  return trim(String(raw || "")) === "ERROR:conflict"
+}
+
 function errorMessage(raw) {
   var text = String(raw || "")
+  if (isConflict(text)) return "Changed elsewhere"
   if (text.indexOf("ERROR:") === 0) return trim(text.slice(6))
   try {
     var parsed = JSON.parse(text)
@@ -167,6 +174,7 @@ function errorMessage(raw) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    isConflict: isConflict,
     parseCalendars: parseCalendars,
     isAlmanacPath: isAlmanacPath,
     pathCalendarId: pathCalendarId,
