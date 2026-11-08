@@ -1,9 +1,9 @@
 {
-  "apps.dottie-todo-omarchy": {
+  "apps.agentcloud-todos": {
     "icon": "󰄬",
-    "label": "Dottie-Todos",
-    "aliases": ["dottie", "dottie-todos", "todo", "todos", "checklist"],
-    "description": "Open Dottie-Todos as a window",
-    "action": "omarchy-shell shell summon sd.dottie-todo-omarchy"
+    "label": "Agent Cloud Todos",
+    "aliases": ["agentcloud", "agentcloud-todos", "todo", "todos", "checklist"],
+    "description": "Open Agent Cloud Todos as a window",
+    "action": "omarchy-shell shell summon sd.agentcloud-todos"
   }
 }

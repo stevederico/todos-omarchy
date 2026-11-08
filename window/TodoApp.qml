@@ -4,7 +4,7 @@ import Quickshell
 import qs.Commons
 
 // Normal Hyprland-tiled window. Summon with:
-//   omarchy-shell shell summon sd.dottie-todo-omarchy
+//   omarchy-shell shell summon sd.agentcloud-todos
 Item {
   id: root
 
@@ -32,7 +32,7 @@ Item {
 
   function requestClose() {
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todo-omarchy")
+      root.shell.hide((root.manifest && root.manifest.id) || "sd.agentcloud-todos")
     else
       root.close()
   }
@@ -87,7 +87,7 @@ Item {
 
   FloatingWindow {
     id: window
-    title: "Dottie-Todos"
+    title: "Agent Cloud Todos"
     visible: false
     color: Color.background
     implicitWidth: Style.space(520)
@@ -101,7 +101,7 @@ Item {
         if (view && view.reload) view.reload()
         Qt.callLater(function () { if (view) view.forceActiveFocus() })
       } else if (!root.closingFromHost && root.shell && typeof root.shell.hide === "function") {
-        root.shell.hide((root.manifest && root.manifest.id) || "sd.dottie-todo-omarchy")
+        root.shell.hide((root.manifest && root.manifest.id) || "sd.agentcloud-todos")
       }
     }
 

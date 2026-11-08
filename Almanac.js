@@ -1,7 +1,16 @@
-// Almanac hosted todos. No I/O. QML and Node tests share this file.
+// Agent Cloud hosted todos (the almanac server). No I/O. QML and Node tests share this file.
+
+var PRODUCT = "Agent Cloud"
 
 function trim(s) {
   return String(s || "").replace(/^\s+|\s+$/g, "")
+}
+
+// The old default names ("Almanac", "Dottie") show as Agent Cloud.
+function displayName(name) {
+  var text = trim(name)
+  if (!text || text === "Almanac" || text === "Dottie") return PRODUCT
+  return text
 }
 
 function parseCalendars(raw) {
@@ -15,20 +24,28 @@ function parseCalendars(raw) {
   for (var i = 0; i < list.length; i++) {
     var row = list[i]
     if (!row || !row.id) continue
-    out.push({ id: String(row.id), name: trim(row.name) || "Almanac" })
+    out.push({ id: String(row.id), name: displayName(row.name) })
   }
   return out
 }
 
+// "agentcloud" or "agentcloud:CAL_ID" in the add field; "almanac" still works.
+var PATH_PREFIXES = ["agentcloud", "almanac"]
+
 function isAlmanacPath(path) {
   var raw = trim(path)
-  return raw === "almanac" || raw.indexOf("almanac:") === 0
+  for (var i = 0; i < PATH_PREFIXES.length; i++) {
+    if (raw === PATH_PREFIXES[i] || raw.indexOf(PATH_PREFIXES[i] + ":") === 0) return true
+  }
+  return false
 }
 
 function pathCalendarId(path) {
   var raw = trim(path)
-  if (raw === "almanac" || raw === "almanac:") return ""
-  if (raw.indexOf("almanac:") === 0) return raw.slice(8)
+  for (var i = 0; i < PATH_PREFIXES.length; i++) {
+    var prefix = PATH_PREFIXES[i] + ":"
+    if (raw.indexOf(prefix) === 0) return raw.slice(prefix.length)
+  }
   return ""
 }
 
@@ -59,7 +76,7 @@ function makeSource(cal, id) {
   return {
     id: id,
     kind: "almanac",
-    title: (cal && cal.name) || "Almanac",
+    title: displayName(cal && cal.name),
     calendarId: cal && cal.id ? String(cal.id) : "",
     path: ""
   }
@@ -187,7 +204,7 @@ function errorMessage(raw) {
     var parsed = JSON.parse(text)
     if (parsed && parsed.error) return String(parsed.error)
   } catch (e) {}
-  return trim(text) || "Almanac request failed"
+  return trim(text) || PRODUCT + " request failed"
 }
 
 // What to queue after a write hit a stale rev (HTTP 412), or null. The server
@@ -212,6 +229,8 @@ function conflictRetry(job, info) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    PRODUCT: PRODUCT,
+    displayName: displayName,
     isConflict: isConflict,
     conflictInfo: conflictInfo,
     conflictCopyTitle: conflictCopyTitle,

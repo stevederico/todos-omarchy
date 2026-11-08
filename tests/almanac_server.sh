@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # bash tests/almanac_server.sh
-# Runs scripts/almanac-todos.sh against a throwaway Almanac server (ALMANAC_BIN,
+# Runs scripts/almanac-todos.sh against a throwaway Agent Cloud server (AGENTCLOUD_BIN or ALMANAC_BIN,
 # 0.34 or later) with one plain and one sealed calendar. Prints TAP-ish lines.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 script="$here/../scripts/almanac-todos.sh"
-BIN="${ALMANAC_BIN:-$HOME/Projects/almanac/target/debug/almanac}"
+BIN="${AGENTCLOUD_BIN:-${ALMANAC_BIN:-$HOME/Projects/agentcloud/target/debug/agentcloud}}"
+[[ -z ${AGENTCLOUD_BIN-}${ALMANAC_BIN-} && ! -x $BIN ]] && BIN="$HOME/Projects/almanac/target/debug/almanac"
 if [[ ! -x $BIN ]]; then
-  echo "ok - skipped: no almanac binary (set ALMANAC_BIN)"
+  echo "ok - skipped: no agentcloud or almanac binary (set AGENTCLOUD_BIN or ALMANAC_BIN)"
   exit 0
 fi
 
@@ -113,7 +114,7 @@ for feed in plain seal; do
 done
 
 run list --cal nope
-check "unknown calendar" "$(cat "$work/out")" "ERROR:No Almanac calendar"
+check "unknown calendar" "$(cat "$work/out")" "ERROR:No Agent Cloud calendar"
 
 rm -f "$work/watch"
 wait "$watcher" 2>/dev/null

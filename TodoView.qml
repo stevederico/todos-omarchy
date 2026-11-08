@@ -19,13 +19,21 @@ Item {
   signal openWindowRequested()
 
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/dottie-todo-omarchy"
+  readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")
+  readonly property string configDir: configHome + "/agentcloud-todos"
   readonly property string sourcesPath: configDir + "/sources.json"
-  readonly property string calendarsPath: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/almanac/hosted-calendars.json"
-  readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todo-omarchy-commit-msg"
+  // Tabs from before the Agent Cloud rename. Read once, when sourcesPath is missing, then copied to sourcesPath.
+  readonly property string legacySourcesPath: configHome + "/dottie-todo-omarchy/sources.json"
+  property bool legacySourcesChecked: false
+  readonly property string calendarsPath: configHome + "/agentcloud/hosted-calendars.json"
+  // Installs from before the Agent Cloud rename keep their key here. Read only when calendarsPath is missing.
+  readonly property string legacyCalendarsPath: configHome + "/almanac/hosted-calendars.json"
+  property bool calendarsPrimary: false
+  property string legacyCalendarsText: ""
+  readonly property string commitMsgPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/agentcloud-todos-commit-msg"
   // Plaintext request bodies: the private runtime dir, else a private cache dir. Removed after each write.
-  readonly property string almanacBodyDir: Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("XDG_CACHE_HOME") || (home + "/.cache")) + "/dottie-todo-omarchy")
-  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/dottie-todo-omarchy-open-count"
+  readonly property string almanacBodyDir: Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("XDG_CACHE_HOME") || (home + "/.cache")) + "/agentcloud-todos")
+  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || configDir) + "/agentcloud-todos-open-count"
 
   property var sources: []
   property string selectedID: ""
@@ -193,7 +201,7 @@ Item {
       return {
         id: src.id,
         kind: "almanac",
-        title: src.title || "Almanac",
+        title: Almanac.displayName(src.title),
         calendarId: Almanac.calendarIdOf(src)
       }
     }
@@ -202,7 +210,7 @@ Item {
 
   function sourceTooltip(src) {
     if (!src) return ""
-    if (Almanac.isAlmanacSource(src)) return "Almanac · " + Almanac.calendarIdOf(src)
+    if (Almanac.isAlmanacSource(src)) return Almanac.PRODUCT + " · " + Almanac.calendarIdOf(src)
     return src.path || ""
   }
 
@@ -289,7 +297,7 @@ Item {
           next.push({
             id: src.id || newId(),
             kind: "almanac",
-            title: src.title || "Almanac",
+            title: Almanac.displayName(src.title),
             calendarId: Almanac.calendarIdOf(src),
             path: ""
           })
@@ -387,7 +395,7 @@ Item {
   function addAlmanacSource(path) {
     var cal = Almanac.resolveCalendar(almanacCalendars, Almanac.pathCalendarId(path))
     if (!cal) {
-      lastError = "No Almanac calendar"
+      lastError = "No Agent Cloud calendar"
       return
     }
     almanacHidden = false
@@ -451,7 +459,7 @@ Item {
     if (almanacBusy || almanacQueue.length) return
     var cal = almanacCalendarId()
     if (!cal) {
-      lastError = "No Almanac calendar"
+      lastError = "No Agent Cloud calendar"
       applyAlmanacSections([])
       return
     }
@@ -494,7 +502,7 @@ Item {
   function startAlmanacWrite(op, payload, status) {
     var cal = almanacCalendarId()
     if (!cal) {
-      lastError = "No Almanac calendar"
+      lastError = "No Agent Cloud calendar"
       return
     }
     lastError = ""
@@ -518,7 +526,7 @@ Item {
     job.token = almanacToken
     job.uid = uid
     job.rev = payload.rev || almanacRevOf(uid)
-    job.path = job.op === "delete" ? "" : almanacBodyDir + "/dottie-todo-omarchy-almanac-body-" + job.token + ".json"
+    job.path = job.op === "delete" ? "" : almanacBodyDir + "/agentcloud-todos-almanac-body-" + job.token + ".json"
     activeAlmanac = job
     if (job.op === "delete") {
       almanacRemote.remove(job.cal, uid, job.token, job.rev)
@@ -548,7 +556,7 @@ Item {
 
   function failPendingAlmanac(err) {
     pendingAlmanac = null
-    lastError = err || "Could not write Almanac request"
+    lastError = err || "Could not write Agent Cloud request"
     finishAlmanacWrite()
   }
 
@@ -718,7 +726,7 @@ Item {
     if (isAlmanac) {
       var uid = item.uid || ""
       if (!uid) {
-        lastError = "Almanac todo missing uid"
+        lastError = "Agent Cloud todo missing uid"
         completingId = ""
         return
       }
@@ -743,7 +751,7 @@ Item {
     if (isAlmanac) {
       var uid = item.uid || ""
       if (!uid) {
-        lastError = "Almanac todo missing uid"
+        lastError = "Agent Cloud todo missing uid"
         return
       }
       startAlmanacWrite("post", { uid: uid, body: { title: trim(text), done: !!item.isCompleted } }, "Edited")
@@ -1135,6 +1143,8 @@ Item {
     repeat: true
     running: root.shown && root.isAlmanac
     onTriggered: {
+      // Picks up a credentials file written at the Agent Cloud path after the window opened.
+      if (!root.calendarsPrimary) calendarsFile.reload()
       if (root.almanacBusy || root.listBusy || root.almanacQueue.length || root.editingId !== "") return
       root.almanacReload()
     }
@@ -1232,7 +1242,35 @@ Item {
     printErrors: false
     onFileChanged: reload()
     onLoaded: root.loadSources(text())
-    onLoadFailed: root.loadSources("")
+    onLoadFailed: {
+      // First run after the rename: take the old tabs once instead of starting empty.
+      if (!root.legacySourcesChecked) {
+        root.legacySourcesChecked = true
+        legacySourcesFile.path = root.legacySourcesPath
+        return
+      }
+      root.loadSources("")
+    }
+  }
+
+  FileView {
+    id: legacySourcesFile
+    path: ""
+    watchChanges: false
+    printErrors: false
+    onLoaded: {
+      if (path === "") return
+      root.loadSources(text())
+      migrateSourcesProc.running = true
+    }
+    onLoadFailed: if (path !== "") root.loadSources("")
+  }
+
+  // Writes the old tabs to sourcesPath once its directory exists. The old file is left as is.
+  Process {
+    id: migrateSourcesProc
+    command: ["mkdir", "-p", root.configDir]
+    onExited: root.persistSources()
   }
 
   FileView {
@@ -1246,6 +1284,12 @@ Item {
     onLoadFailed: if (!root.isAlmanac && root.filePath !== "") root.applyMissing()
   }
 
+  function applyCalendars(raw) {
+    almanacCalendars = Almanac.parseCalendars(raw)
+    maybeInsertAlmanac()
+  }
+
+  // Same choice as almanac-lib.sh: the Agent Cloud file when it exists, else the old almanac one.
   FileView {
     id: calendarsFile
     path: root.calendarsPath
@@ -1253,10 +1297,29 @@ Item {
     printErrors: false
     onFileChanged: reload()
     onLoaded: {
-      root.almanacCalendars = Almanac.parseCalendars(text())
-      root.maybeInsertAlmanac()
+      root.calendarsPrimary = true
+      root.applyCalendars(text())
     }
-    onLoadFailed: root.almanacCalendars = []
+    onLoadFailed: {
+      root.calendarsPrimary = false
+      root.applyCalendars(root.legacyCalendarsText)
+    }
+  }
+
+  FileView {
+    id: legacyCalendarsFile
+    path: root.legacyCalendarsPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      root.legacyCalendarsText = text()
+      if (!root.calendarsPrimary) root.applyCalendars(root.legacyCalendarsText)
+    }
+    onLoadFailed: {
+      root.legacyCalendarsText = ""
+      if (!root.calendarsPrimary) root.applyCalendars("")
+    }
   }
 
   FileView {
@@ -1273,7 +1336,7 @@ Item {
     atomicWrites: true
     printErrors: false
     onSaved: root.startPendingAlmanac()
-    onSaveFailed: root.failPendingAlmanac("Could not write Almanac request")
+    onSaveFailed: root.failPendingAlmanac("Could not write Agent Cloud request")
   }
 
   AlmanacRemote {
@@ -1389,7 +1452,7 @@ Item {
                   selected: root.showAddList
                   foreground: root.foreground
                   fontFamily: root.fontFamily
-                  tooltipText: "Add a markdown file or Almanac"
+                  tooltipText: "Add a markdown file or Agent Cloud"
                   onClicked: {
                     root.showAddList = !root.showAddList
                     root.showAddField = false
@@ -1438,7 +1501,7 @@ Item {
             id: listPathField
             visible: root.showAddList
             width: parent.width
-            placeholderText: "Path to .md or almanac"
+            placeholderText: "Path to .md or agentcloud"
             text: root.addListPath
             foreground: root.foreground
             font.family: root.fontFamily
@@ -1607,7 +1670,7 @@ Item {
               width: parent.width
               topPadding: Style.space(40)
               horizontalAlignment: Text.AlignHCenter
-              text: root.trim(root.query).length > 0 ? "No matches" : (root.isAlmanac ? "No open Almanac todos" : "No open todos in this file")
+              text: root.trim(root.query).length > 0 ? "No matches" : (root.isAlmanac ? "No open Agent Cloud todos" : "No open todos in this file")
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: root.fontBody

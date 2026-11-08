@@ -19,7 +19,7 @@ test("parseCalendars keeps id and name only", () => {
     { id: "cal_2", name: "  Roadmap  " }
   ]))
   assert.deepEqual(rows, [
-    { id: "cal_1", name: "Almanac" },
+    { id: "cal_1", name: "Agent Cloud" },
     { id: "cal_2", name: "Roadmap" }
   ])
   assert.equal(JSON.stringify(rows).includes("secret"), false)
@@ -31,7 +31,7 @@ test("parseCalendars accepts a wrapped or single object", () => {
   })), [{ id: "cal_x", name: "X" }])
   assert.deepEqual(Almanac.parseCalendars(JSON.stringify({ id: "cal_y" })), [{
     id: "cal_y",
-    name: "Almanac"
+    name: "Agent Cloud"
   }])
   assert.deepEqual(Almanac.parseCalendars(""), [])
   assert.deepEqual(Almanac.parseCalendars("not-json"), [])
@@ -48,6 +48,19 @@ test("almanac path and source helpers", () => {
   assert.equal(Almanac.isAlmanacSource({ path: "/tmp/todos.md" }), false)
   assert.equal(Almanac.calendarIdOf({ kind: "almanac", calendarId: "cal_9" }), "cal_9")
   assert.equal(Almanac.calendarIdOf({ path: "almanac:cal_8" }), "cal_8")
+  assert.equal(Almanac.isAlmanacPath("agentcloud"), true)
+  assert.equal(Almanac.isAlmanacPath("agentcloud:cal_1"), true)
+  assert.equal(Almanac.isAlmanacPath("agentcloudx"), false)
+  assert.equal(Almanac.pathCalendarId("agentcloud"), "")
+  assert.equal(Almanac.pathCalendarId("agentcloud:cal_7"), "cal_7")
+})
+
+test("the old default tab names show as Agent Cloud", () => {
+  assert.equal(Almanac.displayName("Almanac"), "Agent Cloud")
+  assert.equal(Almanac.displayName("Dottie"), "Agent Cloud")
+  assert.equal(Almanac.displayName(""), "Agent Cloud")
+  assert.equal(Almanac.displayName(" Groceries "), "Groceries")
+  assert.equal(Almanac.makeSource({ id: "cal_1", name: "Almanac" }, "s").title, "Agent Cloud")
 })
 
 test("resolveCalendar matches id or first", () => {
@@ -75,6 +88,7 @@ test("ensureSource prepends Almanac once", () => {
   assert.equal(next.length, 2)
   assert.equal(next[0].kind, "almanac")
   assert.equal(next[0].calendarId, "cal_1")
+  assert.equal(next[0].title, "Agent Cloud")
   assert.equal(next[1].path, "/tmp/todos.md")
   assert.equal(Almanac.ensureSource(next, cals, () => "again").length, 2)
   assert.deepEqual(Almanac.ensureSource(files, [], () => "x"), files)
@@ -103,7 +117,7 @@ test("parseTodos groups by first tag, open stay first", () => {
 test("errorMessage reads ERROR and JSON", () => {
   assert.equal(Almanac.errorMessage("ERROR:not found"), "not found")
   assert.equal(Almanac.errorMessage(JSON.stringify({ error: "title is required" })), "title is required")
-  assert.equal(Almanac.errorMessage(""), "Almanac request failed")
+  assert.equal(Almanac.errorMessage(""), "Agent Cloud request failed")
   assert.equal(Almanac.errorMessage("ERROR:conflict\n"), "Changed elsewhere")
 })
 
@@ -190,7 +204,7 @@ test("almanac-todos.sh lists with bearer and user-agent", async () => {
     res.end(JSON.stringify({ todos: [{ uid: "todo-1", title: "Milk", done: false, tags: [] }] }))
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const result = await runScript(["list", "--cal", "cal_test"], {
     ALMANAC_CONFIG: config,
@@ -203,7 +217,7 @@ test("almanac-todos.sh lists with bearer and user-agent", async () => {
   assert.equal(seen[0].method, "GET")
   assert.equal(seen[0].url, "/v1/c/cal_test/todos")
   assert.equal(seen[0].auth, "Bearer " + TOKEN)
-  assert.match(seen[0].ua, /dottie-todo-omarchy/)
+  assert.match(seen[0].ua, /agentcloud-todos/)
   assert.equal(result.stdout.includes("test-key"), false)
 })
 
@@ -229,7 +243,7 @@ test("almanac-todos.sh posts a title and patches done", async () => {
     })
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ title: "Call Bob" }))
@@ -265,7 +279,7 @@ test("almanac-todos.sh puts a post with a uid to that todo", async () => {
     })
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ uid: "todo-new", title: "Call Bob", done: true }))
@@ -295,7 +309,7 @@ test("almanac-todos.sh sends --rev as If-Match and maps 412 to conflict", async 
     })
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ uid: "todo-1", title: "Old", done: true }))
@@ -325,7 +339,7 @@ test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
     res.end(JSON.stringify({ error: "unauthorized" }))
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const result = await runScript(["list"], { ALMANAC_CONFIG: config })
   server.close()
@@ -336,8 +350,9 @@ test("almanac-todos.sh maps 401 to ERROR without leaking the key", async () => {
 })
 
 function almanacBin() {
-  return process.env.ALMANAC_BIN
-    || path.join(process.env.HOME, "Projects/almanac/target/debug/almanac")
+  return process.env.AGENTCLOUD_BIN || process.env.ALMANAC_BIN
+    || ["agentcloud/target/debug/agentcloud", "almanac/target/debug/almanac"].map((rel) => path.join(process.env.HOME, "Projects", rel)).find((p) => fs.existsSync(p))
+    || path.join(process.env.HOME, "Projects/agentcloud/target/debug/agentcloud")
 }
 
 function runBin(bin, args, input, env) {
@@ -370,7 +385,7 @@ test("almanac-todos.sh seals a post and opens the reply", async () => {
     })
   })
   const port = await listen(server)
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, port)
   const body = path.join(dir, "body.json")
   fs.writeFileSync(body, JSON.stringify({ title: "Call Bob" }))
@@ -394,7 +409,7 @@ test("almanac-todos.sh seals a post and opens the reply", async () => {
 test("almanac-todos.sh opens a sealed list and merges a patch", async () => {
   const bin = almanacBin()
   if (!fs.existsSync(bin)) return
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dottie-todo-omarchy-almanac-"))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agentcloud-todos-almanac-"))
   const config = writeConfig(dir, 9)
   const sealed = await runBin(bin, ["seal", "--cal", "cal_test", "--kind", "todo", "--uid", "todo-milk"], JSON.stringify({
     uid: "todo-milk",

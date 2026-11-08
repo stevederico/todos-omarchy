@@ -8,11 +8,11 @@ import "TodoStore.js" as Store
 // Checklist count for the bar. Click toggles the window app.
 BarWidget {
   id: root
-  moduleName: "sd.dottie-todo-omarchy"
+  moduleName: "sd.agentcloud-todos"
 
   property int openCount: 0
   readonly property bool opened: false
-  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "") + "/.config/dottie-todo-omarchy")) + "/dottie-todo-omarchy-open-count"
+  readonly property string openCountPath: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "") + "/.config/agentcloud-todos")) + "/agentcloud-todos-open-count"
 
   function applyCountText(raw) {
     var n = parseInt(String(raw || "0"), 10)
@@ -32,18 +32,18 @@ BarWidget {
   }
 
   function openWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.dottie-todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "summon", "sd.agentcloud-todos"])
   }
 
   function closeWindow() {
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.dottie-todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "hide", "sd.agentcloud-todos"])
   }
 
   function toggleWindow() {
     if (root.clickLock) return
     root.clickLock = true
     clickLockTimer.restart()
-    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.dottie-todo-omarchy"])
+    Quickshell.execDetached(["omarchy-shell", "-q", "shell", "toggle", "sd.agentcloud-todos"])
   }
 
   function open() { root.openWindow() }
@@ -65,7 +65,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "sd.dottie-todo-omarchy"
+    target: "sd.agentcloud-todos"
 
     function refresh(): void { root.refresh() }
     function open(): void { root.open() }
@@ -76,7 +76,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "sd.dottie-todos-omarchy"
+    target: "agentcloud-todos"
 
     function refresh(): void { root.refresh() }
     function open(): void { root.open() }
@@ -85,7 +85,7 @@ BarWidget {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function capture(arg: string): string {
-      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todo-omarchy", "capture", arg || "{}"])
+      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.agentcloud-todos", "capture", arg || "{}"])
       return "ok"
     }
   }
@@ -100,7 +100,7 @@ BarWidget {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function capture(arg: string): string {
-      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.dottie-todo-omarchy", "capture", arg || "{}"])
+      Quickshell.execDetached(["omarchy-shell", "-q", "shell", "call", "sd.agentcloud-todos", "capture", arg || "{}"])
       return "ok"
     }
   }
@@ -113,7 +113,7 @@ BarWidget {
     fontSize: 18
     opticalSize: 22
     text: "󰄬"
-    tooltipText: "Dottie-Todos · " + (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos"))
+    tooltipText: "Agent Cloud Todos · " + (root.openCount === 1 ? "1 open to-do" : (root.openCount + " open to-dos"))
 
     onPressed: function (b) {
       if (b === Qt.LeftButton || b === Qt.RightButton) root.toggleWindow()

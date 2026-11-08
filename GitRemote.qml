@@ -9,7 +9,10 @@ Item {
   id: root
 
   readonly property string home: Quickshell.env("HOME") || ""
-  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")) + "/dottie-todo-omarchy"
+  readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")
+  readonly property string configDir: configHome + "/agentcloud-todos"
+  // Tabs from before the Agent Cloud rename, until TodoView copies them to configDir.
+  readonly property string legacySourcesPath: configHome + "/dottie-todo-omarchy/sources.json"
   property var queue: []
   property bool inFlight: false
   property bool skipRebase: false
@@ -24,7 +27,8 @@ Item {
   }
 
   function enqueueAll() {
-    var dirs = GitSync.parseSourceDirs(sourcesFile.text())
+    if (!sourcesFile.text()) sourcesFile.reload()
+    var dirs = GitSync.parseSourceDirs(sourcesFile.text() || legacySourcesFile.text())
     var next = queue.slice()
     for (var i = 0; i < dirs.length; i++) {
       if (next.indexOf(dirs[i]) < 0) next.push(dirs[i])
@@ -70,6 +74,14 @@ Item {
     blockLoading: true
     printErrors: false
     onFileChanged: reload()
+  }
+
+  FileView {
+    id: legacySourcesFile
+    path: root.legacySourcesPath
+    watchChanges: false
+    blockLoading: true
+    printErrors: false
   }
 
   Process {

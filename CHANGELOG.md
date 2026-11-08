@@ -1,3 +1,13 @@
+0.59.0
+
+  Rename to Agent Cloud
+  Rename plugin id
+  Migrate old tabs
+  Read agentcloud credentials
+  Fall back to almanac
+  Accept agentcloud path
+  Update Agent Cloud client
+
 0.58.0
 
   Keep conflict copies
