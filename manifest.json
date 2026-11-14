@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "sd.agentcloud-todos",
   "name": "Agent Cloud Todos",
-  "version": "0.60.1",
+  "version": "0.61.0",
   "author": "sd",
   "license": "MIT",
   "description": "Omarchy bar and window app: open todos from markdown and Agent Cloud",
@@ -29,5 +29,10 @@
     ],
     "allowMultiple": false,
     "defaultSection": "right"
+  },
+  "menuItem": {
+    "label": "Todos",
+    "icon": "󰄬",
+    "description": "Open Agent Cloud Todos as a window"
   }
 }
