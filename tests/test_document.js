@@ -255,3 +255,103 @@ test("filterSections hides completed and matches query", () => {
   const kept = Doc.filterSections(sections, "", false, shown[0].items[1].id)
   assert.equal(kept[0].items.length, 2)
 })
+
+const STATUS_DOC = `# To-Do 4
+
+
+
+# TODAY
+- [ ] Ship it #1 [now] due:2026-11-12
+  - [ ] Sub task #2
+
+
+
+# IN PROGRESS
+
+
+
+# LATER
+- [ ] Later one #3
+- [ ] Later two #4
+
+
+
+# DETAILS: IN PROGRESS
+
+- [ ] Ship it #1 [now] due:2026-11-12
+  - Notes line
+  - [ ] Sub task #2
+    - Deeper note
+
+# DETAILS: LATER
+
+- [ ] Later one #3
+  - Why it matters
+## Money first
+- plain bullet note
+
+# Revenue picture
+- Net: down
+`
+
+test("status layout: # headers are sections, DETAILS and plain bullets hidden", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  assert.equal(Doc.detectFormat(lines).status, true)
+  const sections = Doc.parse(lines)
+  assert.deepEqual(sections.map((s) => s.title), ["TODAY", "LATER"])
+  assert.deepEqual(sections[0].items.map((i) => [i.text, i.indent]), [
+    ["Ship it #1 [now] due:2026-11-12", 0],
+    ["Sub task #2", 2]
+  ])
+  assert.deepEqual(sections[1].items.map((i) => i.text), ["Later one #3", "Later two #4"])
+  assert.equal(Doc.openCount(lines), 4)
+})
+
+test("status layout: add goes to top of LATER as a checkbox and bumps the title count", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  assert.equal(Doc.defaultAddSection(lines), "LATER")
+  const out = Doc.addItem(lines, "Fresh idea").lines
+  assert.equal(out[0], "# To-Do 5")
+  assert.equal(out[out.indexOf("# LATER") + 1], "- [ ] Fresh idea")
+})
+
+test("status layout: complete marks in place, syncs the DETAILS copy, reopen restores", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  const done = Doc.toggleComplete(lines, "Later one #3", "LATER", -1, false)
+  assert.equal(done.completed, true)
+  assert.equal(done.lines[0], "# To-Do 3")
+  assert.equal(done.lines.filter((l) => l === "- [x] Later one #3").length, 2)
+  assert.equal(done.lines.length, lines.length)
+  const back = Doc.toggleComplete(done.lines, "Later one #3", "LATER", -1, true)
+  assert.equal(Doc.toText(back.lines), Doc.toText(lines))
+})
+
+test("status layout: edit renames both copies and keeps the checkbox", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  const out = Doc.updateItem(lines, "Sub task #2", "TODAY", -1, false, "Sub task renamed #2").lines
+  assert.equal(out.filter((l) => l === "  - [ ] Sub task renamed #2").length, 2)
+  assert.equal(out.includes("    - Deeper note"), true)
+})
+
+test("status layout: delete removes the list line only and bumps the count", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  const out = Doc.deleteItem(lines, "Later two #4", "LATER", -1, false).lines
+  assert.equal(out[0], "# To-Do 3")
+  assert.equal(out.some((l) => l.includes("Later two")), false)
+  assert.equal(out.includes("  - Why it matters"), true)
+})
+
+test("status layout: reorder keeps checkboxes", () => {
+  const lines = Doc.fromText(STATUS_DOC)
+  const out = Doc.moveOpenItems(lines, "LATER", [1], 0).lines
+  const i = out.indexOf("# LATER")
+  assert.deepEqual(out.slice(i + 1, i + 3), ["- [ ] Later two #4", "- [ ] Later one #3"])
+})
+
+test("plain layout keeps a single # title out of sections and edits keep [ ]", () => {
+  const lines = Doc.fromText("# Title\n\n## A\n- [ ] boxed\n- plain\n")
+  assert.equal(Doc.detectFormat(lines).status, false)
+  assert.deepEqual(Doc.parse(lines).map((s) => s.title), ["A"])
+  const out = Doc.updateItem(lines, "boxed", "A", -1, false, "boxed 2").lines
+  assert.equal(out[3], "- [ ] boxed 2")
+})

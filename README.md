@@ -14,7 +14,7 @@ Omarchy bar **and window** app (`todos-omarchy`) for open items in plain markdow
 - Shows open items (`- task`) grouped by `##` section; completed stay hidden until **Show Completed**
 - **+** / `n` — new to-do is prepended at the top of the first section (pre-header `To-Dos` when present)
 - Capture box: `omarchy-shell shell call sd.agentcloud-todos capture {}` — large centered field; Enter adds one item to the active list, Esc closes
-- Click the circle — mark complete (`- [x]`), move that line to the **end of the file**; **Show Completed** to see / reopen
+- Click the circle — mark complete (`- [x]`), move that line to the **end of the file** (status layout: checked in place); **Show Completed** to see / reopen
 - Click text to edit; right-click for Complete / Copy / Delete
 - Drag open items to reorder
 - Live-reloads when the active file changes; tabs persist in `~/.config/agentcloud-todos/sources.json`
@@ -73,6 +73,15 @@ Markdown lists:
 - `- item` = open (shown)
 - `- [x] item` = completed (line moved to end of file; hidden until Show Completed)
 - `## Section` = group header
+
+Status layout (optional, picked automatically when a file has two or more `# HEADER` lines, like `Todos/todos.md`):
+
+- `# TODAY`, `# IN PROGRESS`, `# LATER` = groups
+- Only `- [ ] item` (open) and `- [x] item` (done) lines are items. Nested `  - [ ]` items show indented. Plain `- notes` are ignored
+- `# DETAILS…` groups hold notes and stay hidden. Completing or editing an item updates its copy there too
+- A first line like `# To-Do 22` is the title. Its number tracks the open count on every change
+- New items go to the top of `# LATER` as `- [ ]`
+- Completing checks the item in place (`- [x]`) instead of moving it to the end. Delete removes only the list line; its DETAILS notes stay
 
 Agent Cloud lists use the hosted `/v1/c/{id}/todos` API. First tag becomes the section. Due date and priority stay on the server. Drag-reorder is markdown only (Agent Cloud sorts open items, then due, then created).
 

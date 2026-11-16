@@ -43,6 +43,14 @@ function isCompletedTodoLine(line) {
   return /^[\t ]*-\s+\[[xX]\](\s|$)/.test(line)
 }
 
+function isCheckboxLine(line) {
+  return /^[\t ]*-\s+\[[xX ]\](\s|$)/.test(line)
+}
+
+function isOpenCheckboxLine(line) {
+  return /^[\t ]*-\s+\[ \](\s|$)/.test(line)
+}
+
 function todoText(line) {
   var dash = line.match(/^[\t ]*-\s+/)
   if (!dash) return ""
@@ -58,8 +66,66 @@ function leadingWhitespace(line) {
   return line.slice(0, i)
 }
 
-function formatTodoLine(indent, text, completed) {
-  return (indent || "") + (completed ? "- [x] " : "- ") + text
+function formatTodoLine(indent, text, completed, checkbox) {
+  if (completed) return (indent || "") + "- [x] " + text
+  return (indent || "") + (checkbox ? "- [ ] " : "- ") + text
+}
+
+// Two layouts share this module.
+// Plain: optional "# Title", "## Section" groups, "- item" open, "- [x] item" done.
+// Status: two or more "# HEADER" lines (e.g. "# TODAY", "# LATER"). Only
+// "- [ ]" / "- [x]" lines are items, "# DETAILS…" sections repeat items with
+// notes and stay hidden, and a leading "# To-Do 22" title keeps the open count.
+function isStatusHeader(trimmed) {
+  return /^#\s+\S/.test(trimmed)
+}
+
+function detectFormat(lines) {
+  var count = 0
+  var i
+  for (i = 0; i < lines.length; i++) if (isStatusHeader(trim(lines[i]))) count++
+  if (count < 2) return { status: false, titleIndex: -1 }
+  var titleIndex = -1
+  for (i = 0; i < lines.length; i++) {
+    if (trim(lines[i]).length === 0) continue
+    if (!isStatusHeader(trim(lines[i]))) break
+    var j = i + 1
+    while (j < lines.length && trim(lines[j]).length === 0) j++
+    if (j >= lines.length || isStatusHeader(trim(lines[j]))) titleIndex = i
+    break
+  }
+  return { status: true, titleIndex: titleIndex }
+}
+
+function headerTitle(lines, offset, fmt) {
+  var trimmed = trim(lines[offset])
+  if (!fmt.status) return isSectionHeader(trimmed) ? sectionTitle(trimmed) : null
+  if (offset === fmt.titleIndex || !isStatusHeader(trimmed)) return null
+  return trim(trimmed.slice(1))
+}
+
+function isItemLine(line, fmt) {
+  if (!fmt.status) return isTodoLine(line)
+  return isCheckboxLine(line) && todoText(line).length > 0
+}
+
+function isHiddenSection(title, fmt) {
+  return fmt.status && /^details\b/i.test(String(title || ""))
+}
+
+function sectionOfLines(lines, fmt) {
+  var current = "To-Dos"
+  var out = []
+  for (var offset = 0; offset < lines.length; offset++) {
+    var title = headerTitle(lines, offset, fmt)
+    if (title !== null) {
+      current = title
+      out.push(null)
+    } else {
+      out.push(current)
+    }
+  }
+  return out
 }
 
 function makeItem(offset, body, section, indent, done, ordinal) {
@@ -74,6 +140,7 @@ function makeItem(offset, body, section, indent, done, ordinal) {
 }
 
 function parse(lines) {
+  var fmt = detectFormat(lines)
   var currentTitle = "To-Dos"
   var buckets = []
   var index = {}
@@ -89,13 +156,14 @@ function parse(lines) {
 
   for (var offset = 0; offset < lines.length; offset++) {
     var line = lines[offset]
-    var trimmed = trim(line)
-    if (isSectionHeader(trimmed)) {
-      currentTitle = sectionTitle(trimmed)
-      ensureSection(currentTitle)
+    var header = headerTitle(lines, offset, fmt)
+    if (header !== null) {
+      currentTitle = header
+      if (!isHiddenSection(currentTitle, fmt)) ensureSection(currentTitle)
       continue
     }
-    if (!isTodoLine(line)) continue
+    if (isHiddenSection(currentTitle, fmt)) continue
+    if (!isItemLine(line, fmt)) continue
     var body = todoText(line)
     if (body.length === 0) continue
     var done = isCompletedTodoLine(line)
@@ -141,65 +209,81 @@ function completedCount(lines) {
   return n
 }
 
+// Status layout: keep "# To-Do 22" equal to the open count.
+function syncTitleCount(lines) {
+  var fmt = detectFormat(lines)
+  if (fmt.titleIndex < 0) return lines
+  var m = lines[fmt.titleIndex].match(/^(\s*#\s+.*\S\s+)(\d+)(\s*)$/)
+  if (!m) return lines
+  lines[fmt.titleIndex] = m[1] + String(openCount(lines)) + m[3]
+  return lines
+}
+
 function defaultAddSection(lines) {
+  var fmt = detectFormat(lines)
   var i
-  for (i = 0; i < lines.length; i++) {
-    var trimmed = trim(lines[i])
-    if (isSectionHeader(trimmed)) break
-    if (isTodoLine(lines[i])) return "To-Dos"
+  var title
+  if (fmt.status) {
+    var first = null
+    for (i = 0; i < lines.length; i++) {
+      title = headerTitle(lines, i, fmt)
+      if (title === null || isHiddenSection(title, fmt)) continue
+      if (title.toUpperCase() === "LATER") return title
+      if (first === null) first = title
+    }
+    return first === null ? "To-Dos" : first
   }
   for (i = 0; i < lines.length; i++) {
-    trimmed = trim(lines[i])
-    if (isSectionHeader(trimmed)) return sectionTitle(trimmed)
+    if (headerTitle(lines, i, fmt) !== null) break
+    if (isItemLine(lines[i], fmt)) return "To-Dos"
+  }
+  for (i = 0; i < lines.length; i++) {
+    title = headerTitle(lines, i, fmt)
+    if (title !== null) return title
   }
   return "To-Dos"
 }
 
 function hasSection(lines, title) {
+  var fmt = detectFormat(lines)
   if (title === "To-Dos") {
     var sawTodoBeforeHeader = false
     var sawHeader = false
     for (var i = 0; i < lines.length; i++) {
-      var t = trim(lines[i])
-      if (isSectionHeader(t)) {
+      if (headerTitle(lines, i, fmt) !== null) {
         sawHeader = true
         break
       }
-      if (isTodoLine(lines[i])) sawTodoBeforeHeader = true
+      if (isItemLine(lines[i], fmt)) sawTodoBeforeHeader = true
     }
     if (sawTodoBeforeHeader || !sawHeader) return true
   }
   for (var j = 0; j < lines.length; j++) {
-    var header = trim(lines[j])
-    if (isSectionHeader(header) && sectionTitle(header) === title) return true
+    if (headerTitle(lines, j, fmt) === title) return true
   }
   return false
 }
 
 function resolveLineIndex(lines, text, section, hint, isCompleted) {
-  if (hint >= 0 && hint < lines.length) {
-    var line = lines[hint]
-    if (isTodoLine(line) && todoText(line) === text && isCompletedTodoLine(line) === isCompleted)
-      return hint
+  var fmt = detectFormat(lines)
+  var owners = sectionOfLines(lines, fmt)
+  function matches(i) {
+    return owners[i] !== null && !isHiddenSection(owners[i], fmt) &&
+      isItemLine(lines[i], fmt) && todoText(lines[i]) === text
   }
-  var current = "To-Dos"
-  for (var offset = 0; offset < lines.length; offset++) {
-    var trimmed = trim(lines[offset])
-    if (isSectionHeader(trimmed)) {
-      current = sectionTitle(trimmed)
-      continue
-    }
-    if (current !== section) continue
-    if (!isTodoLine(lines[offset]) || todoText(lines[offset]) !== text) continue
+  if (hint >= 0 && hint < lines.length && matches(hint) && isCompletedTodoLine(lines[hint]) === isCompleted)
+    return hint
+  var offset
+  for (offset = 0; offset < lines.length; offset++) {
+    if (owners[offset] !== section || !matches(offset)) continue
     if (isCompletedTodoLine(lines[offset]) === isCompleted) return offset
   }
-  for (var i = 0; i < lines.length; i++) {
-    if (isTodoLine(lines[i]) && todoText(lines[i]) === text) return i
-  }
+  for (offset = 0; offset < lines.length; offset++) if (matches(offset)) return offset
   return -1
 }
 
 function insertIndex(lines, sectionTitleName, completed, prepend) {
+  var fmt = detectFormat(lines)
   var current = "To-Dos"
   var firstOpen = -1
   var lastOpen = -1
@@ -211,9 +295,8 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
 
   for (var offset = 0; offset < lines.length; offset++) {
     var line = lines[offset]
-    var trimmed = trim(line)
-    if (isSectionHeader(trimmed)) {
-      var title = sectionTitle(trimmed)
+    var title = headerTitle(lines, offset, fmt)
+    if (title !== null) {
       if (current === sectionTitleName && sectionEnd < 0) sectionEnd = offset
       current = title
       sawExplicitHeader = true
@@ -231,7 +314,7 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
     var inSection = false
     if (sectionTitleName === "To-Dos" && !sawExplicitHeader) inSection = true
     else if (current === sectionTitleName) inSection = true
-    if (!inSection || !isTodoLine(line)) continue
+    if (!inSection || !isItemLine(line, fmt)) continue
 
     lastTodo = offset
     if (isCompletedTodoLine(line)) {
@@ -256,8 +339,8 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
     if (sectionTitleName === "To-Dos") {
       var i = 0
       while (i < lines.length) {
+        if (headerTitle(lines, i, fmt) !== null) return i
         var t = trim(lines[i])
-        if (isSectionHeader(t)) return i
         if (t.indexOf("#") === 0 || t.length === 0) {
           i++
           continue
@@ -281,19 +364,21 @@ function addItem(lines, text, sectionTitleName) {
   var trimmed = trim(text)
   if (trimmed.length === 0) error("emptyText")
 
+  var fmt = detectFormat(next)
   var target = sectionTitleName || defaultAddSection(next)
-  var newLine = formatTodoLine("", trimmed, false)
+  var newLine = formatTodoLine("", trimmed, false, fmt.status)
   var hasTodos = false
-  for (var i = 0; i < next.length; i++) if (isTodoLine(next[i])) { hasTodos = true; break }
+  for (var i = 0; i < next.length; i++) if (isItemLine(next[i], fmt)) { hasTodos = true; break }
 
   if (hasSection(next, target) || (target === "To-Dos" && hasTodos)) {
     var at = insertIndex(next, target, false, true)
     next.splice(at, 0, newLine)
-    return { lines: next, index: at }
+    return { lines: syncTitleCount(next), index: at }
   }
 
+  var marker = fmt.status ? "# " : "## "
   if (next.length === 0 || (next.length === 1 && next[0].length === 0)) {
-    next = ["## " + target, "", newLine]
+    next = [marker + target, "", newLine]
     return { lines: next, index: 2 }
   }
 
@@ -302,31 +387,56 @@ function addItem(lines, text, sectionTitleName) {
     insertAt = 1
     while (insertAt < next.length && trim(next[insertAt]).length === 0) insertAt++
   }
-  var block = ["## " + target, newLine, ""]
+  var block = [marker + target, newLine, ""]
   for (var b = 0; b < block.length; b++) next.splice(insertAt + b, 0, block[b])
-  return { lines: next, index: insertAt + 1 }
+  return { lines: syncTitleCount(next), index: insertAt + 1 }
+}
+
+// Status layout: the item's copy in a hidden "# DETAILS…" section follows
+// every check and edit so the two never drift apart.
+function detailCopies(lines, fmt, text, isCompleted) {
+  var out = []
+  if (!fmt.status) return out
+  var owners = sectionOfLines(lines, fmt)
+  for (var i = 0; i < lines.length; i++) {
+    if (owners[i] === null || !isHiddenSection(owners[i], fmt)) continue
+    if (!isItemLine(lines[i], fmt) || todoText(lines[i]) !== text) continue
+    if (isCompletedTodoLine(lines[i]) === isCompleted) out.push(i)
+  }
+  return out
 }
 
 function toggleComplete(lines, text, section, hint, wasCompleted) {
   var next = lines.slice()
+  var fmt = detectFormat(next)
   var idx = resolveLineIndex(next, text, section, hint, wasCompleted)
   if (idx < 0) error("notFound")
   var line = next[idx]
   if (!isTodoLine(line) || todoText(line) !== text) error("invalidLine")
   var indent = leadingWhitespace(line)
   var markCompleted = !isCompletedTodoLine(line)
+
+  if (fmt.status) {
+    var targets = [idx].concat(detailCopies(next, fmt, text, !markCompleted))
+    for (var t = 0; t < targets.length; t++) {
+      var at = targets[t]
+      next[at] = formatTodoLine(leadingWhitespace(next[at]), text, markCompleted, true)
+    }
+    return { lines: syncTitleCount(next), completed: markCompleted }
+  }
+
   next.splice(idx, 1)
 
   if (markCompleted) {
     next.push(formatTodoLine(indent, text, true))
   } else {
-    var openLine = formatTodoLine(indent, text, false)
+    var openLine = formatTodoLine(indent, text, false, isCheckboxLine(line))
     var target = defaultAddSection(next)
     var hasTodos = false
     for (var i = 0; i < next.length; i++) if (isTodoLine(next[i])) { hasTodos = true; break }
     if (hasSection(next, target) || (target === "To-Dos" && hasTodos)) {
-      var at = insertIndex(next, target, false, true)
-      next.splice(Math.min(at, next.length), 0, openLine)
+      var insertAt = insertIndex(next, target, false, true)
+      next.splice(Math.min(insertAt, next.length), 0, openLine)
     } else {
       next.splice(0, 0, openLine)
     }
@@ -339,11 +449,16 @@ function updateItem(lines, oldText, section, hint, isCompleted, newText) {
   var trimmed = trim(newText)
   if (trimmed.length === 0) error("emptyText")
   if (trimmed === oldText) return { lines: next }
+  var fmt = detectFormat(next)
   var idx = resolveLineIndex(next, oldText, section, hint, isCompleted)
   if (idx < 0) error("notFound")
   var line = next[idx]
   if (!isTodoLine(line) || todoText(line) !== oldText) error("invalidLine")
-  next[idx] = formatTodoLine(leadingWhitespace(line), trimmed, isCompleted)
+  var targets = [idx].concat(detailCopies(next, fmt, oldText, isCompleted))
+  for (var t = 0; t < targets.length; t++) {
+    var at = targets[t]
+    next[at] = formatTodoLine(leadingWhitespace(next[at]), trimmed, isCompleted, fmt.status || isOpenCheckboxLine(next[at]))
+  }
   return { lines: next }
 }
 
@@ -358,7 +473,7 @@ function deleteItem(lines, text, section, hint, isCompleted) {
     var prevBlank = idx > 0 && trim(next[idx - 1]).length === 0
     if (prevBlank) next.splice(idx, 1)
   }
-  return { lines: next }
+  return { lines: syncTitleCount(next) }
 }
 
 function moveItems(items, sourceIndexes, destination) {
@@ -399,7 +514,7 @@ function moveOpenItems(lines, sectionTitleName, sourceIndexes, destination) {
   for (s = 0; s < slots.length; s++) {
     var slot = slots[s]
     if (slot >= next.length || !isTodoLine(next[slot])) error("invalidLine")
-    next[slot] = formatTodoLine(leadingWhitespace(next[slot]), open[s].text, false)
+    next[slot] = formatTodoLine(leadingWhitespace(next[slot]), open[s].text, false, isOpenCheckboxLine(next[slot]))
   }
   return { lines: next }
 }
@@ -525,6 +640,9 @@ if (typeof module !== "undefined") {
     sectionTitle: sectionTitle,
     isTodoLine: isTodoLine,
     isCompletedTodoLine: isCompletedTodoLine,
+    isCheckboxLine: isCheckboxLine,
+    detectFormat: detectFormat,
+    syncTitleCount: syncTitleCount,
     todoText: todoText,
     leadingWhitespace: leadingWhitespace,
     formatTodoLine: formatTodoLine,

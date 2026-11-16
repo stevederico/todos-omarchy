@@ -1,3 +1,10 @@
+0.62.0
+
+  Add status layout
+  Hide DETAILS sections
+  Sync title count
+  Keep checkbox edits
+
 0.61.0
 
   Add menu launcher
