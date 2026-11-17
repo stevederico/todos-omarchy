@@ -3,7 +3,7 @@ function defaultSettings() {
 }
 
 function parseSettings(raw) {
-  var parsed = null
+  let parsed = null
   try { parsed = JSON.parse(String(raw || "")) } catch (e) { parsed = null }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) parsed = {}
   return {}

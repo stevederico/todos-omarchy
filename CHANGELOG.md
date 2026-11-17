@@ -1,3 +1,7 @@
+0.63.0
+
+  Replace var with const
+
 0.62.0
 
   Add status layout

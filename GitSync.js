@@ -1,19 +1,19 @@
 function dirname(p) {
-  var s = String(p || "")
-  var i = s.lastIndexOf("/")
+  const s = String(p || "")
+  const i = s.lastIndexOf("/")
   return i <= 0 ? "" : s.slice(0, i)
 }
 
 function parseSourceDirs(raw) {
-  var parsed = null
+  let parsed = null
   try { parsed = JSON.parse(String(raw || "")) } catch (e) { parsed = null }
-  var sources = parsed && parsed.sources && parsed.sources.length ? parsed.sources : []
-  var seen = {}
-  var out = []
-  for (var i = 0; i < sources.length; i++) {
-    var src = sources[i]
+  const sources = parsed && parsed.sources && parsed.sources.length ? parsed.sources : []
+  const seen = {}
+  const out = []
+  for (let i = 0; i < sources.length; i++) {
+    const src = sources[i]
     if (!src || src.kind === "cloud" || src.kind === "almanac" || !src.path) continue
-    var dir = dirname(src.path)
+    const dir = dirname(src.path)
     if (!dir || seen[dir]) continue
     seen[dir] = true
     out.push(dir)

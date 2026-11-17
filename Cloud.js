@@ -8,21 +8,21 @@ function trim(s) {
 
 // The old default names ("Almanac", "Dottie") show as Agent Cloud.
 function displayName(name) {
-  var text = trim(name)
+  const text = trim(name)
   if (!text || text === "Almanac" || text === "Dottie") return PRODUCT
   return text
 }
 
 function parseCalendars(raw) {
-  var parsed = null
+  let parsed = null
   try { parsed = JSON.parse(String(raw || "")) } catch (e) { return [] }
-  var list = []
+  let list = []
   if (Array.isArray(parsed)) list = parsed
   else if (parsed && Array.isArray(parsed.calendars)) list = parsed.calendars
   else if (parsed && parsed.id) list = [parsed]
-  var out = []
-  for (var i = 0; i < list.length; i++) {
-    var row = list[i]
+  const out = []
+  for (let i = 0; i < list.length; i++) {
+    const row = list[i]
     if (!row || !row.id) continue
     out.push({ id: String(row.id), name: displayName(row.name) })
   }
@@ -33,17 +33,17 @@ function parseCalendars(raw) {
 var PATH_PREFIXES = ["agentcloud", "almanac"]
 
 function isCloudPath(path) {
-  var raw = trim(path)
-  for (var i = 0; i < PATH_PREFIXES.length; i++) {
+  const raw = trim(path)
+  for (let i = 0; i < PATH_PREFIXES.length; i++) {
     if (raw === PATH_PREFIXES[i] || raw.indexOf(PATH_PREFIXES[i] + ":") === 0) return true
   }
   return false
 }
 
 function pathCalendarId(path) {
-  var raw = trim(path)
-  for (var i = 0; i < PATH_PREFIXES.length; i++) {
-    var prefix = PATH_PREFIXES[i] + ":"
+  const raw = trim(path)
+  for (let i = 0; i < PATH_PREFIXES.length; i++) {
+    const prefix = PATH_PREFIXES[i] + ":"
     if (raw.indexOf(prefix) === 0) return raw.slice(prefix.length)
   }
   return ""
@@ -63,11 +63,11 @@ function calendarIdOf(src) {
 }
 
 function resolveCalendar(calendars, wantedId) {
-  var list = calendars || []
+  const list = calendars || []
   if (!list.length) return null
-  var want = trim(wantedId)
+  const want = trim(wantedId)
   if (want) {
-    for (var i = 0; i < list.length; i++) if (list[i].id === want) return list[i]
+    for (let i = 0; i < list.length; i++) if (list[i].id === want) return list[i]
     return null
   }
   return list[0]
@@ -84,39 +84,39 @@ function makeSource(cal, id) {
 }
 
 function defaultTabId(sources) {
-  var list = sources || []
-  for (var i = 0; i < list.length; i++) {
+  const list = sources || []
+  for (let i = 0; i < list.length; i++) {
     if (isCloudSource(list[i])) return list[i].id
   }
   return list.length ? list[0].id : ""
 }
 
 function ensureSource(sources, calendars, newIdFn) {
-  var next = (sources || []).slice()
-  for (var i = 0; i < next.length; i++) {
+  const next = (sources || []).slice()
+  for (let i = 0; i < next.length; i++) {
     if (isCloudSource(next[i])) return next
   }
-  var cal = resolveCalendar(calendars, "")
+  const cal = resolveCalendar(calendars, "")
   if (!cal) return next
   next.unshift(makeSource(cal, newIdFn ? newIdFn() : ("cloud-" + cal.id)))
   return next
 }
 
 function tagTitle(tag) {
-  var raw = trim(tag)
+  const raw = trim(tag)
   if (!raw) return "To-Dos"
   return raw.charAt(0).toUpperCase() + raw.slice(1)
 }
 
 function sectionOf(todo) {
-  var tags = (todo && todo.tags) || []
+  const tags = (todo && todo.tags) || []
   if (tags.length) return tagTitle(tags[0])
   return "To-Dos"
 }
 
 function itemFromTodo(todo) {
-  var title = trim(todo && todo.title)
-  var uid = todo && todo.uid ? String(todo.uid) : ""
+  const title = trim(todo && todo.title)
+  const uid = todo && todo.uid ? String(todo.uid) : ""
   return {
     id: uid || ("todo:" + title),
     text: title,
@@ -134,19 +134,19 @@ function itemFromTodo(todo) {
 }
 
 function parseTodos(payload) {
-  var parsed = payload
+  let parsed = payload
   if (typeof payload === "string") {
     try { parsed = JSON.parse(payload) } catch (e) { return [] }
   }
-  var todos = []
+  let todos = []
   if (parsed && Array.isArray(parsed.todos)) todos = parsed.todos
   else if (Array.isArray(parsed)) todos = parsed
-  var buckets = []
-  var index = {}
-  for (var i = 0; i < todos.length; i++) {
-    var item = itemFromTodo(todos[i])
+  const buckets = []
+  const index = {}
+  for (let i = 0; i < todos.length; i++) {
+    const item = itemFromTodo(todos[i])
     if (!item.text && !item.uid) continue
-    var title = item.section
+    const title = item.section
     if (!Object.prototype.hasOwnProperty.call(index, title)) {
       index[title] = buckets.length
       buckets.push({ id: title, title: title, items: [] })
@@ -157,19 +157,19 @@ function parseTodos(payload) {
 }
 
 function countOpen(sections) {
-  var n = 0
-  for (var s = 0; s < (sections || []).length; s++) {
-    var items = sections[s].items || []
-    for (var i = 0; i < items.length; i++) if (!items[i].isCompleted) n++
+  let n = 0
+  for (let s = 0; s < (sections || []).length; s++) {
+    const items = sections[s].items || []
+    for (let i = 0; i < items.length; i++) if (!items[i].isCompleted) n++
   }
   return n
 }
 
 function countCompleted(sections) {
-  var n = 0
-  for (var s = 0; s < (sections || []).length; s++) {
-    var items = sections[s].items || []
-    for (var i = 0; i < items.length; i++) if (items[i].isCompleted) n++
+  let n = 0
+  for (let s = 0; s < (sections || []).length; s++) {
+    const items = sections[s].items || []
+    for (let i = 0; i < items.length; i++) if (items[i].isCompleted) n++
   }
   return n
 }
@@ -182,27 +182,27 @@ function isConflict(raw) {
 
 // { deleted, current } from a conflict reply. current is the server's todo or null.
 function conflictInfo(raw) {
-  var parsed = null
+  let parsed = null
   try { parsed = JSON.parse(String(raw || "").split("\n").slice(1).join("\n")) } catch (e) { parsed = null }
-  var current = parsed && parsed.current && typeof parsed.current === "object" ? parsed.current : null
+  const current = parsed && parsed.current && typeof parsed.current === "object" ? parsed.current : null
   return { deleted: !!(parsed && parsed.deleted), current: current }
 }
 
 // Title for the new todo that keeps an edit the server refused. Fits the 512-byte cap.
 function conflictCopyTitle(title) {
-  var suffix = " (conflict copy)"
-  var chars = Array.from(trim(title))
+  const suffix = " (conflict copy)"
+  const chars = Array.from(trim(title))
   while (chars.length && encodeURIComponent(chars.join("")).replace(/%[0-9A-F]{2}/g, "x").length > 512 - suffix.length)
     chars.pop()
   return trim(chars.join("")) + suffix
 }
 
 function errorMessage(raw) {
-  var text = String(raw || "")
+  const text = String(raw || "")
   if (isConflict(text)) return "Changed elsewhere"
   if (text.indexOf("ERROR:") === 0) return trim(text.slice(6))
   try {
-    var parsed = JSON.parse(text)
+    const parsed = JSON.parse(text)
     if (parsed && parsed.error) return String(parsed.error)
   } catch (e) {}
   return trim(text) || PRODUCT + " request failed"
@@ -213,11 +213,11 @@ function errorMessage(raw) {
 // top of the server copy, at its rev. A delete, or a toggle of a todo that is
 // gone or already there, needs nothing.
 function conflictRetry(job, info) {
-  var payload = (job && job.payload) || {}
-  var body = payload.body || {}
+  const payload = (job && job.payload) || {}
+  const body = payload.body || {}
   if (!job || job.op === "delete") return null
   if (payload.toggle) {
-    var current = info && info.current
+    const current = info && info.current
     if (!current || info.deleted || !current.rev || !!current.done === !!body.done) return null
     return {
       op: "post",

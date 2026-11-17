@@ -2,12 +2,12 @@
 // the same file. No I/O, no git, no QML types.
 
 function fromText(text) {
-  var raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  const raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
   return raw.split("\n")
 }
 
 function toText(lines) {
-  var body = (lines || []).join("\n")
+  let body = (lines || []).join("\n")
   if (body.length === 0 || body.charAt(body.length - 1) !== "\n") body += "\n"
   return body
 }
@@ -17,12 +17,12 @@ function trim(s) {
 }
 
 function error(code) {
-  var messages = {
+  const messages = {
     emptyText: "Empty to-do text",
     notFound: "Item out of date — refresh and try again",
     invalidLine: "File changed under us — refresh and try again"
   }
-  var err = new Error(messages[code] || code)
+  const err = new Error(messages[code] || code)
   err.code = code
   throw err
 }
@@ -52,16 +52,16 @@ function isOpenCheckboxLine(line) {
 }
 
 function todoText(line) {
-  var dash = line.match(/^[\t ]*-\s+/)
+  const dash = line.match(/^[\t ]*-\s+/)
   if (!dash) return ""
-  var rest = line.slice(dash[0].length)
-  var box = rest.match(/^\[[xX ]\]\s*/)
+  let rest = line.slice(dash[0].length)
+  const box = rest.match(/^\[[xX ]\]\s*/)
   if (box) rest = rest.slice(box[0].length)
   return trim(rest)
 }
 
 function leadingWhitespace(line) {
-  var i = 0
+  let i = 0
   while (i < line.length && (line.charAt(i) === " " || line.charAt(i) === "\t")) i++
   return line.slice(0, i)
 }
@@ -81,15 +81,15 @@ function isStatusHeader(trimmed) {
 }
 
 function detectFormat(lines) {
-  var count = 0
-  var i
+  let count = 0
+  let i
   for (i = 0; i < lines.length; i++) if (isStatusHeader(trim(lines[i]))) count++
   if (count < 2) return { status: false, titleIndex: -1 }
-  var titleIndex = -1
+  let titleIndex = -1
   for (i = 0; i < lines.length; i++) {
     if (trim(lines[i]).length === 0) continue
     if (!isStatusHeader(trim(lines[i]))) break
-    var j = i + 1
+    let j = i + 1
     while (j < lines.length && trim(lines[j]).length === 0) j++
     if (j >= lines.length || isStatusHeader(trim(lines[j]))) titleIndex = i
     break
@@ -98,7 +98,7 @@ function detectFormat(lines) {
 }
 
 function headerTitle(lines, offset, fmt) {
-  var trimmed = trim(lines[offset])
+  const trimmed = trim(lines[offset])
   if (!fmt.status) return isSectionHeader(trimmed) ? sectionTitle(trimmed) : null
   if (offset === fmt.titleIndex || !isStatusHeader(trimmed)) return null
   return trim(trimmed.slice(1))
@@ -114,10 +114,10 @@ function isHiddenSection(title, fmt) {
 }
 
 function sectionOfLines(lines, fmt) {
-  var current = "To-Dos"
-  var out = []
-  for (var offset = 0; offset < lines.length; offset++) {
-    var title = headerTitle(lines, offset, fmt)
+  let current = "To-Dos"
+  const out = []
+  for (let offset = 0; offset < lines.length; offset++) {
+    const title = headerTitle(lines, offset, fmt)
     if (title !== null) {
       current = title
       out.push(null)
@@ -140,23 +140,23 @@ function makeItem(offset, body, section, indent, done, ordinal) {
 }
 
 function parse(lines) {
-  var fmt = detectFormat(lines)
-  var currentTitle = "To-Dos"
-  var buckets = []
-  var index = {}
-  var ordinals = {}
+  const fmt = detectFormat(lines)
+  let currentTitle = "To-Dos"
+  const buckets = []
+  const index = {}
+  const ordinals = {}
 
   function ensureSection(title) {
     if (Object.prototype.hasOwnProperty.call(index, title)) return index[title]
     buckets.push({ title: title, items: [] })
-    var i = buckets.length - 1
+    const i = buckets.length - 1
     index[title] = i
     return i
   }
 
-  for (var offset = 0; offset < lines.length; offset++) {
-    var line = lines[offset]
-    var header = headerTitle(lines, offset, fmt)
+  for (let offset = 0; offset < lines.length; offset++) {
+    const line = lines[offset]
+    const header = headerTitle(lines, offset, fmt)
     if (header !== null) {
       currentTitle = header
       if (!isHiddenSection(currentTitle, fmt)) ensureSection(currentTitle)
@@ -164,25 +164,25 @@ function parse(lines) {
     }
     if (isHiddenSection(currentTitle, fmt)) continue
     if (!isItemLine(line, fmt)) continue
-    var body = todoText(line)
+    const body = todoText(line)
     if (body.length === 0) continue
-    var done = isCompletedTodoLine(line)
-    var si = ensureSection(currentTitle)
-    var key = currentTitle + "\0" + body
+    const done = isCompletedTodoLine(line)
+    const si = ensureSection(currentTitle)
+    const key = currentTitle + "\0" + body
     ordinals[key] = (ordinals[key] || 0) + 1
     buckets[si].items.push(makeItem(offset, body, currentTitle, leadingWhitespace(line).length, done, ordinals[key]))
   }
 
-  var out = []
-  for (var b = 0; b < buckets.length; b++) {
-    var open = []
-    var doneItems = []
-    var items = buckets[b].items
-    for (var i = 0; i < items.length; i++) {
+  const out = []
+  for (let b = 0; b < buckets.length; b++) {
+    const open = []
+    const doneItems = []
+    const items = buckets[b].items
+    for (let i = 0; i < items.length; i++) {
       if (items[i].isCompleted) doneItems.push(items[i])
       else open.push(items[i])
     }
-    var combined = open.concat(doneItems)
+    const combined = open.concat(doneItems)
     if (combined.length === 0) continue
     out.push({ id: buckets[b].title, title: buckets[b].title, items: combined })
   }
@@ -190,41 +190,41 @@ function parse(lines) {
 }
 
 function openCount(lines) {
-  var sections = parse(lines)
-  var n = 0
-  for (var s = 0; s < sections.length; s++) {
-    var items = sections[s].items
-    for (var i = 0; i < items.length; i++) if (!items[i].isCompleted) n++
+  const sections = parse(lines)
+  let n = 0
+  for (let s = 0; s < sections.length; s++) {
+    const items = sections[s].items
+    for (let i = 0; i < items.length; i++) if (!items[i].isCompleted) n++
   }
   return n
 }
 
 function completedCount(lines) {
-  var sections = parse(lines)
-  var n = 0
-  for (var s = 0; s < sections.length; s++) {
-    var items = sections[s].items
-    for (var i = 0; i < items.length; i++) if (items[i].isCompleted) n++
+  const sections = parse(lines)
+  let n = 0
+  for (let s = 0; s < sections.length; s++) {
+    const items = sections[s].items
+    for (let i = 0; i < items.length; i++) if (items[i].isCompleted) n++
   }
   return n
 }
 
 // Status layout: keep "# To-Do 22" equal to the open count.
 function syncTitleCount(lines) {
-  var fmt = detectFormat(lines)
+  const fmt = detectFormat(lines)
   if (fmt.titleIndex < 0) return lines
-  var m = lines[fmt.titleIndex].match(/^(\s*#\s+.*\S\s+)(\d+)(\s*)$/)
+  const m = lines[fmt.titleIndex].match(/^(\s*#\s+.*\S\s+)(\d+)(\s*)$/)
   if (!m) return lines
   lines[fmt.titleIndex] = m[1] + String(openCount(lines)) + m[3]
   return lines
 }
 
 function defaultAddSection(lines) {
-  var fmt = detectFormat(lines)
-  var i
-  var title
+  const fmt = detectFormat(lines)
+  let i
+  let title
   if (fmt.status) {
-    var first = null
+    let first = null
     for (i = 0; i < lines.length; i++) {
       title = headerTitle(lines, i, fmt)
       if (title === null || isHiddenSection(title, fmt)) continue
@@ -245,11 +245,11 @@ function defaultAddSection(lines) {
 }
 
 function hasSection(lines, title) {
-  var fmt = detectFormat(lines)
+  const fmt = detectFormat(lines)
   if (title === "To-Dos") {
-    var sawTodoBeforeHeader = false
-    var sawHeader = false
-    for (var i = 0; i < lines.length; i++) {
+    let sawTodoBeforeHeader = false
+    let sawHeader = false
+    for (let i = 0; i < lines.length; i++) {
       if (headerTitle(lines, i, fmt) !== null) {
         sawHeader = true
         break
@@ -258,22 +258,22 @@ function hasSection(lines, title) {
     }
     if (sawTodoBeforeHeader || !sawHeader) return true
   }
-  for (var j = 0; j < lines.length; j++) {
+  for (let j = 0; j < lines.length; j++) {
     if (headerTitle(lines, j, fmt) === title) return true
   }
   return false
 }
 
 function resolveLineIndex(lines, text, section, hint, isCompleted) {
-  var fmt = detectFormat(lines)
-  var owners = sectionOfLines(lines, fmt)
+  const fmt = detectFormat(lines)
+  const owners = sectionOfLines(lines, fmt)
   function matches(i) {
     return owners[i] !== null && !isHiddenSection(owners[i], fmt) &&
       isItemLine(lines[i], fmt) && todoText(lines[i]) === text
   }
   if (hint >= 0 && hint < lines.length && matches(hint) && isCompletedTodoLine(lines[hint]) === isCompleted)
     return hint
-  var offset
+  let offset
   for (offset = 0; offset < lines.length; offset++) {
     if (owners[offset] !== section || !matches(offset)) continue
     if (isCompletedTodoLine(lines[offset]) === isCompleted) return offset
@@ -283,19 +283,19 @@ function resolveLineIndex(lines, text, section, hint, isCompleted) {
 }
 
 function insertIndex(lines, sectionTitleName, completed, prepend) {
-  var fmt = detectFormat(lines)
-  var current = "To-Dos"
-  var firstOpen = -1
-  var lastOpen = -1
-  var lastTodo = -1
-  var firstCompleted = -1
-  var headerIndex = -1
-  var sectionEnd = -1
-  var sawExplicitHeader = false
+  const fmt = detectFormat(lines)
+  let current = "To-Dos"
+  let firstOpen = -1
+  let lastOpen = -1
+  let lastTodo = -1
+  let firstCompleted = -1
+  let headerIndex = -1
+  let sectionEnd = -1
+  let sawExplicitHeader = false
 
-  for (var offset = 0; offset < lines.length; offset++) {
-    var line = lines[offset]
-    var title = headerTitle(lines, offset, fmt)
+  for (let offset = 0; offset < lines.length; offset++) {
+    const line = lines[offset]
+    const title = headerTitle(lines, offset, fmt)
     if (title !== null) {
       if (current === sectionTitleName && sectionEnd < 0) sectionEnd = offset
       current = title
@@ -311,7 +311,7 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
       continue
     }
 
-    var inSection = false
+    let inSection = false
     if (sectionTitleName === "To-Dos" && !sawExplicitHeader) inSection = true
     else if (current === sectionTitleName) inSection = true
     if (!inSection || !isItemLine(line, fmt)) continue
@@ -337,10 +337,10 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
     if (firstCompleted >= 0) return firstCompleted
     if (headerIndex >= 0) return headerIndex + 1
     if (sectionTitleName === "To-Dos") {
-      var i = 0
+      let i = 0
       while (i < lines.length) {
         if (headerTitle(lines, i, fmt) !== null) return i
-        var t = trim(lines[i])
+        const t = trim(lines[i])
         if (t.indexOf("#") === 0 || t.length === 0) {
           i++
           continue
@@ -360,45 +360,45 @@ function insertIndex(lines, sectionTitleName, completed, prepend) {
 }
 
 function addItem(lines, text, sectionTitleName) {
-  var next = lines.slice()
-  var trimmed = trim(text)
+  let next = lines.slice()
+  const trimmed = trim(text)
   if (trimmed.length === 0) error("emptyText")
 
-  var fmt = detectFormat(next)
-  var target = sectionTitleName || defaultAddSection(next)
-  var newLine = formatTodoLine("", trimmed, false, fmt.status)
-  var hasTodos = false
-  for (var i = 0; i < next.length; i++) if (isItemLine(next[i], fmt)) { hasTodos = true; break }
+  const fmt = detectFormat(next)
+  const target = sectionTitleName || defaultAddSection(next)
+  const newLine = formatTodoLine("", trimmed, false, fmt.status)
+  let hasTodos = false
+  for (let i = 0; i < next.length; i++) if (isItemLine(next[i], fmt)) { hasTodos = true; break }
 
   if (hasSection(next, target) || (target === "To-Dos" && hasTodos)) {
-    var at = insertIndex(next, target, false, true)
+    const at = insertIndex(next, target, false, true)
     next.splice(at, 0, newLine)
     return { lines: syncTitleCount(next), index: at }
   }
 
-  var marker = fmt.status ? "# " : "## "
+  const marker = fmt.status ? "# " : "## "
   if (next.length === 0 || (next.length === 1 && next[0].length === 0)) {
     next = [marker + target, "", newLine]
     return { lines: next, index: 2 }
   }
 
-  var insertAt = 0
+  let insertAt = 0
   if (next.length > 0 && trim(next[0]).indexOf("#") === 0) {
     insertAt = 1
     while (insertAt < next.length && trim(next[insertAt]).length === 0) insertAt++
   }
-  var block = [marker + target, newLine, ""]
-  for (var b = 0; b < block.length; b++) next.splice(insertAt + b, 0, block[b])
+  const block = [marker + target, newLine, ""]
+  for (let b = 0; b < block.length; b++) next.splice(insertAt + b, 0, block[b])
   return { lines: syncTitleCount(next), index: insertAt + 1 }
 }
 
 // Status layout: the item's copy in a hidden "# DETAILS…" section follows
 // every check and edit so the two never drift apart.
 function detailCopies(lines, fmt, text, isCompleted) {
-  var out = []
+  const out = []
   if (!fmt.status) return out
-  var owners = sectionOfLines(lines, fmt)
-  for (var i = 0; i < lines.length; i++) {
+  const owners = sectionOfLines(lines, fmt)
+  for (let i = 0; i < lines.length; i++) {
     if (owners[i] === null || !isHiddenSection(owners[i], fmt)) continue
     if (!isItemLine(lines[i], fmt) || todoText(lines[i]) !== text) continue
     if (isCompletedTodoLine(lines[i]) === isCompleted) out.push(i)
@@ -407,19 +407,19 @@ function detailCopies(lines, fmt, text, isCompleted) {
 }
 
 function toggleComplete(lines, text, section, hint, wasCompleted) {
-  var next = lines.slice()
-  var fmt = detectFormat(next)
-  var idx = resolveLineIndex(next, text, section, hint, wasCompleted)
+  const next = lines.slice()
+  const fmt = detectFormat(next)
+  const idx = resolveLineIndex(next, text, section, hint, wasCompleted)
   if (idx < 0) error("notFound")
-  var line = next[idx]
+  const line = next[idx]
   if (!isTodoLine(line) || todoText(line) !== text) error("invalidLine")
-  var indent = leadingWhitespace(line)
-  var markCompleted = !isCompletedTodoLine(line)
+  const indent = leadingWhitespace(line)
+  const markCompleted = !isCompletedTodoLine(line)
 
   if (fmt.status) {
-    var targets = [idx].concat(detailCopies(next, fmt, text, !markCompleted))
-    for (var t = 0; t < targets.length; t++) {
-      var at = targets[t]
+    const targets = [idx].concat(detailCopies(next, fmt, text, !markCompleted))
+    for (let t = 0; t < targets.length; t++) {
+      const at = targets[t]
       next[at] = formatTodoLine(leadingWhitespace(next[at]), text, markCompleted, true)
     }
     return { lines: syncTitleCount(next), completed: markCompleted }
@@ -430,12 +430,12 @@ function toggleComplete(lines, text, section, hint, wasCompleted) {
   if (markCompleted) {
     next.push(formatTodoLine(indent, text, true))
   } else {
-    var openLine = formatTodoLine(indent, text, false, isCheckboxLine(line))
-    var target = defaultAddSection(next)
-    var hasTodos = false
-    for (var i = 0; i < next.length; i++) if (isTodoLine(next[i])) { hasTodos = true; break }
+    const openLine = formatTodoLine(indent, text, false, isCheckboxLine(line))
+    const target = defaultAddSection(next)
+    let hasTodos = false
+    for (let i = 0; i < next.length; i++) if (isTodoLine(next[i])) { hasTodos = true; break }
     if (hasSection(next, target) || (target === "To-Dos" && hasTodos)) {
-      var insertAt = insertIndex(next, target, false, true)
+      const insertAt = insertIndex(next, target, false, true)
       next.splice(Math.min(insertAt, next.length), 0, openLine)
     } else {
       next.splice(0, 0, openLine)
@@ -445,66 +445,66 @@ function toggleComplete(lines, text, section, hint, wasCompleted) {
 }
 
 function updateItem(lines, oldText, section, hint, isCompleted, newText) {
-  var next = lines.slice()
-  var trimmed = trim(newText)
+  const next = lines.slice()
+  const trimmed = trim(newText)
   if (trimmed.length === 0) error("emptyText")
   if (trimmed === oldText) return { lines: next }
-  var fmt = detectFormat(next)
-  var idx = resolveLineIndex(next, oldText, section, hint, isCompleted)
+  const fmt = detectFormat(next)
+  const idx = resolveLineIndex(next, oldText, section, hint, isCompleted)
   if (idx < 0) error("notFound")
-  var line = next[idx]
+  const line = next[idx]
   if (!isTodoLine(line) || todoText(line) !== oldText) error("invalidLine")
-  var targets = [idx].concat(detailCopies(next, fmt, oldText, isCompleted))
-  for (var t = 0; t < targets.length; t++) {
-    var at = targets[t]
+  const targets = [idx].concat(detailCopies(next, fmt, oldText, isCompleted))
+  for (let t = 0; t < targets.length; t++) {
+    const at = targets[t]
     next[at] = formatTodoLine(leadingWhitespace(next[at]), trimmed, isCompleted, fmt.status || isOpenCheckboxLine(next[at]))
   }
   return { lines: next }
 }
 
 function deleteItem(lines, text, section, hint, isCompleted) {
-  var next = lines.slice()
-  var idx = resolveLineIndex(next, text, section, hint, isCompleted)
+  const next = lines.slice()
+  const idx = resolveLineIndex(next, text, section, hint, isCompleted)
   if (idx < 0) error("notFound")
-  var line = next[idx]
+  const line = next[idx]
   if (!isTodoLine(line) || todoText(line) !== text) error("invalidLine")
   next.splice(idx, 1)
   if (idx < next.length && trim(next[idx]).length === 0) {
-    var prevBlank = idx > 0 && trim(next[idx - 1]).length === 0
+    const prevBlank = idx > 0 && trim(next[idx - 1]).length === 0
     if (prevBlank) next.splice(idx, 1)
   }
   return { lines: syncTitleCount(next) }
 }
 
 function moveItems(items, sourceIndexes, destination) {
-  var moving = []
-  var sorted = sourceIndexes.slice().sort(function (a, b) { return a - b })
-  var i
+  const moving = []
+  const sorted = sourceIndexes.slice().sort(function (a, b) { return a - b })
+  let i
   for (i = 0; i < sorted.length; i++) moving.push(items[sorted[i]])
-  var next = items.slice()
+  const next = items.slice()
   for (i = sorted.length - 1; i >= 0; i--) next.splice(sorted[i], 1)
-  var dest = Math.min(Math.max(destination, 0), next.length)
+  const dest = Math.min(Math.max(destination, 0), next.length)
   for (i = 0; i < moving.length; i++) next.splice(dest + i, 0, moving[i])
   return next
 }
 
 function moveOpenItems(lines, sectionTitleName, sourceIndexes, destination) {
-  var next = lines.slice()
-  var sections = parse(next)
-  var section = null
-  var s
+  const next = lines.slice()
+  const sections = parse(next)
+  let section = null
+  let s
   for (s = 0; s < sections.length; s++) {
     if (sections[s].title === sectionTitleName) { section = sections[s]; break }
   }
   if (!section) error("notFound")
-  var open = []
+  let open = []
   for (s = 0; s < section.items.length; s++) {
     if (!section.items[s].isCompleted) open.push(section.items[s])
   }
   if (open.length === 0 || !sourceIndexes || sourceIndexes.length === 0) return { lines: next }
   open = moveItems(open, sourceIndexes, destination)
 
-  var slots = []
+  const slots = []
   for (s = 0; s < section.items.length; s++) {
     if (!section.items[s].isCompleted) slots.push(section.items[s].lineIndex)
   }
@@ -512,7 +512,7 @@ function moveOpenItems(lines, sectionTitleName, sourceIndexes, destination) {
   if (slots.length !== open.length) error("invalidLine")
 
   for (s = 0; s < slots.length; s++) {
-    var slot = slots[s]
+    const slot = slots[s]
     if (slot >= next.length || !isTodoLine(next[slot])) error("invalidLine")
     next[slot] = formatTodoLine(leadingWhitespace(next[slot]), open[s].text, false, isOpenCheckboxLine(next[slot]))
   }
@@ -521,52 +521,52 @@ function moveOpenItems(lines, sectionTitleName, sourceIndexes, destination) {
 
 function moveOpenItem(lines, item, direction) {
   if (!item || item.isCompleted) return { lines: lines.slice() }
-  var sections = parse(lines)
-  var section = null
-  for (var s = 0; s < sections.length; s++) {
+  const sections = parse(lines)
+  let section = null
+  for (let s = 0; s < sections.length; s++) {
     if (sections[s].title === item.section) { section = sections[s]; break }
   }
   if (!section) return { lines: lines.slice() }
-  var open = []
-  for (var i = 0; i < section.items.length; i++) {
+  const open = []
+  for (let i = 0; i < section.items.length; i++) {
     if (!section.items[i].isCompleted) open.push(section.items[i])
   }
-  var idx = -1
-  for (i = 0; i < open.length; i++) if (open[i].id === item.id) { idx = i; break }
+  let idx = -1
+  for (let i = 0; i < open.length; i++) if (open[i].id === item.id) { idx = i; break }
   if (idx < 0) return { lines: lines.slice() }
-  var dest = idx + direction
+  const dest = idx + direction
   if (dest < 0 || dest >= open.length) return { lines: lines.slice() }
   return moveOpenItems(lines, item.section, [idx], dest)
 }
 
 function commitMessage(prefix, text) {
-  var oneLine = String(text || "").replace(/\n/g, " ")
-  var clipped = oneLine.length > 60 ? oneLine.slice(0, 57) + "..." : oneLine
+  const oneLine = String(text || "").replace(/\n/g, " ")
+  const clipped = oneLine.length > 60 ? oneLine.slice(0, 57) + "..." : oneLine
   return prefix + " " + clipped
 }
 
 function todayHeader(date) {
-  var d = date || new Date()
-  var mm = d.getMonth() + 1
-  var dd = d.getDate()
-  var yy = d.getFullYear() % 100
+  const d = date || new Date()
+  const mm = d.getMonth() + 1
+  const dd = d.getDate()
+  const yy = d.getFullYear() % 100
   function pad(n) { return n < 10 ? "0" + n : String(n) }
   return pad(mm) + "/" + pad(dd) + "/" + pad(yy)
 }
 
 function insertChangelogEntry(content, dateHeader, entryLine) {
-  var normalized = String(content || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-  var lines = normalized.split("\n")
-  var idx = -1
-  var i
+  const normalized = String(content || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  const lines = normalized.split("\n")
+  let idx = -1
+  let i
   for (i = 0; i < lines.length; i++) {
     if (trim(lines[i]) === dateHeader) { idx = i; break }
   }
   if (idx >= 0) {
-    var insertAt = idx + 1
+    let insertAt = idx + 1
     if (insertAt < lines.length && trim(lines[insertAt]).length === 0) insertAt++
     lines.splice(insertAt, 0, entryLine)
-    var s = lines.join("\n")
+    let s = lines.join("\n")
     if (s.charAt(s.length - 1) !== "\n") s += "\n"
     return s
   }
@@ -574,23 +574,23 @@ function insertChangelogEntry(content, dateHeader, entryLine) {
 }
 
 function tabTitle(title) {
-  var raw = trim(title)
+  const raw = trim(title)
   if (raw.length === 0) return ""
-  var parts = raw.split(/\s+/)
-  var out = []
-  for (var i = 0; i < parts.length; i++) {
-    var w = parts[i]
+  const parts = raw.split(/\s+/)
+  const out = []
+  for (let i = 0; i < parts.length; i++) {
+    const w = parts[i]
     out.push(w.charAt(0).toUpperCase() + w.slice(1))
   }
   return out.join(" ")
 }
 
 function defaultTitle(path) {
-  var cleaned = String(path || "").replace(/\/+$/, "")
-  var parts = cleaned.split("/")
-  var file = parts.length ? parts[parts.length - 1] : cleaned
-  var base = file.replace(/\.md$/i, "")
-  var lower = base.toLowerCase()
+  const cleaned = String(path || "").replace(/\/+$/, "")
+  const parts = cleaned.split("/")
+  const file = parts.length ? parts[parts.length - 1] : cleaned
+  const base = file.replace(/\.md$/i, "")
+  const lower = base.toLowerCase()
   if (lower === "todo" || lower === "todos" || lower === "to-do") {
     return parts.length >= 2 ? parts[parts.length - 2] : base
   }
@@ -598,26 +598,26 @@ function defaultTitle(path) {
 }
 
 function defaultTodosPath(home, existsFn) {
-  var candidates = [home + "/todos.md", home + "/Documents/todos.md"]
-  for (var i = 0; i < candidates.length; i++) {
+  const candidates = [home + "/todos.md", home + "/Documents/todos.md"]
+  for (let i = 0; i < candidates.length; i++) {
     if (existsFn && existsFn(candidates[i])) return candidates[i]
   }
   return candidates[0]
 }
 
 function filterSections(sections, query, showCompleted, keepId) {
-  var q = trim(query)
-  var keep = trim(keepId)
-  var out = []
-  for (var s = 0; s < (sections || []).length; s++) {
-    var section = sections[s]
-    var items = []
-    for (var i = 0; i < section.items.length; i++) {
-      var item = section.items[i]
-      var kept = keep && (item.id === keep || item.uid === keep)
+  const q = trim(query)
+  const keep = trim(keepId)
+  const out = []
+  for (let s = 0; s < (sections || []).length; s++) {
+    const section = sections[s]
+    const items = []
+    for (let i = 0; i < section.items.length; i++) {
+      const item = section.items[i]
+      const kept = keep && (item.id === keep || item.uid === keep)
       if (!showCompleted && item.isCompleted && !kept) continue
       if (q.length > 0) {
-        var hay = (item.text + " " + section.title).toLowerCase()
+        const hay = (item.text + " " + section.title).toLowerCase()
         if (hay.indexOf(q.toLowerCase()) < 0) continue
       }
       items.push(item)
