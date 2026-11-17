@@ -1,12 +1,9 @@
-// Agent Cloud hosted todos (the agentcloud server). No I/O. QML and Node tests share this file.
-
 var PRODUCT = "Agent Cloud"
 
 function trim(s) {
   return String(s || "").replace(/^\s+|\s+$/g, "")
 }
 
-// The old default names ("Almanac", "Dottie") show as Agent Cloud.
 function displayName(name) {
   const text = trim(name)
   if (!text || text === "Almanac" || text === "Dottie") return PRODUCT
@@ -29,7 +26,6 @@ function parseCalendars(raw) {
   return out
 }
 
-// "agentcloud" or "agentcloud:CAL_ID" in the add field; "almanac" still works.
 var PATH_PREFIXES = ["agentcloud", "almanac"]
 
 function isCloudPath(path) {
@@ -51,7 +47,6 @@ function pathCalendarId(path) {
 
 function isCloudSource(src) {
   if (!src) return false
-  // "almanac": the kind tabs were saved with before the Agent Cloud rename.
   if (src.kind === "cloud" || src.kind === "almanac") return true
   return isCloudPath(src.path)
 }
@@ -174,13 +169,10 @@ function countCompleted(sections) {
   return n
 }
 
-// The script prints ERROR:conflict when a --rev is stale (HTTP 412),
-// then the server's {"deleted", "current"} on the next line.
 function isConflict(raw) {
   return trim(String(raw || "").split("\n")[0]) === "ERROR:conflict"
 }
 
-// { deleted, current } from a conflict reply. current is the server's todo or null.
 function conflictInfo(raw) {
   let parsed = null
   try { parsed = JSON.parse(String(raw || "").split("\n").slice(1).join("\n")) } catch (e) { parsed = null }
@@ -188,7 +180,6 @@ function conflictInfo(raw) {
   return { deleted: !!(parsed && parsed.deleted), current: current }
 }
 
-// Title for the new todo that keeps an edit the server refused. Fits the 512-byte cap.
 function conflictCopyTitle(title) {
   const suffix = " (conflict copy)"
   const chars = Array.from(trim(title))
@@ -208,10 +199,6 @@ function errorMessage(raw) {
   return trim(text) || PRODUCT + " request failed"
 }
 
-// What to queue after a write hit a stale rev (HTTP 412), or null. The server
-// copy always stays. An edit is saved as a new todo. A toggle is sent again on
-// top of the server copy, at its rev. A delete, or a toggle of a todo that is
-// gone or already there, needs nothing.
 function conflictRetry(job, info) {
   const payload = (job && job.payload) || {}
   const body = payload.body || {}

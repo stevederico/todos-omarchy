@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Commit (and optionally push) listed files in their git repo.
-# The commit message is always read from a file with `git commit -F`.
-# Paths and the message never enter the script via interpolation.
-# Shares .git/agentcloud-todos-sync.lock with git-pull.sh.
 set -u
 export GIT_EDITOR=true
 export GIT_TERMINAL_PROMPT=0

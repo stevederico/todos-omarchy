@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Fetch the current branch's upstream and fast-forward if we are behind.
-# With --push, also push when we are ahead. Diverged histories rebase
-# when the tree is clean; conflicts abort and stay local.
-# Never prompts. Always exits 0.
 set -u
 export GIT_EDITOR=true
 export GIT_TERMINAL_PROMPT=0

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# bash tests/cloud_server.sh
-# Runs scripts/cloud-todos.sh against a throwaway Agent Cloud server (AGENTCLOUD_BIN or ALMANAC_BIN,
-# 0.34 or later) with one plain and one sealed calendar. Prints TAP-ish lines.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 script="$here/../scripts/cloud-todos.sh"
@@ -26,7 +23,6 @@ check() {
   if [[ $2 == "$3" ]]; then echo "ok - $1"; else echo "not ok - $1: got [$2] want [$3]"; fails=$((fails + 1)); fi
 }
 
-# Two calendars. Their keys and tokens go to a secrets file, never to stdout.
 for feed in plain seal; do
   curl -s -H 'content-type: application/json' -H 'accept: application/json' \
     -d "{\"feed\":\"$feed\"}" "http://127.0.0.1:$port/calendars" >"$work/$feed.json"
@@ -45,7 +41,6 @@ open(os.path.join(work, "secrets"), "w").write("\n".join(secrets) + "\n")
 PY
 chmod 600 "$work/creds.json" "$work/secrets"
 
-# curl that records its argv, so the test sees what `ps` would.
 mkdir -p "$work/bin" "$work/run"
 chmod 700 "$work/run"
 real_curl=$(command -v curl)
@@ -87,7 +82,6 @@ for feed in plain seal; do
   check "$feed: patch keeps fields" "$(field '(d["done"], d["description"], d["due"], d["tags"])')" "(True, 'secret desc', '2026-12-01', ['home'])"
   rev2=$(field 'd["rev"]')
 
-  # The app updates with `post` and the uid in the body.
   printf '{"uid":"%s","title":"Buy oat milk","done":false}' "$uid" >"$work/body.json"
   run post --cal "$cal" --rev "$rev2" --body-file "$work/body.json"
   check "$feed: post with uid updates" "$(field '(d["uid"] == "'"$uid"'", d["title"], d["done"], d["description"])')" "(True, 'Buy oat milk', False, 'secret desc')"
@@ -127,7 +121,6 @@ check "no key or token in curl argv" "$(grep -cF -f "$work/secrets" "$work/curl-
 check "no key or token on stdout" "$(grep -cF -f "$work/secrets" "$work/all-out")" "0"
 check "temp files removed" "$(find "$work/run" -mindepth 1 | wc -l | tr -d ' ')" "0"
 
-# The sealed todo never reached the server as plaintext; a plain one does.
 printf '{"title":"Hidden","description":"sealed words"}' >"$work/body.json"
 run post --cal "$(cat "$work/seal.id")" --body-file "$work/body.json"
 check "sealed post opens" "$(field 'd["sealed"]')" "True"

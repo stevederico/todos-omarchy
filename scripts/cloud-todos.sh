@@ -1,16 +1,4 @@
 #!/usr/bin/env bash
-# Talk to Agent Cloud hosted todos through cloud-lib.sh.
-# The key stays in the config file; requests carry its token on curl's stdin.
-#
-#   list
-#   post   --body-file FILE [--rev REV]   (a body with a uid updates that todo)
-#   patch  --uid UID --body-file FILE [--rev REV]
-#   delete --uid UID [--rev REV]
-#
-# Updates keep the fields the body leaves out. Prints JSON on success,
-# `ERROR:<text>` otherwise. A stale --rev prints `ERROR:conflict`, then the
-# server's {"deleted", "current"} on the next line. Sealed todos are opened
-# before they are printed.
 set -u
 
 fail() {
@@ -58,7 +46,6 @@ TODOS="$CLOUD_ROOT/todos"
 OUT=$(cloud_tmp) || fail "Agent Cloud request failed"
 CODE=""
 
-# request METHOD URL [BODY_FILE] [IF_MATCH_REV]
 request() {
   CODE=$(cloud_curl "$1" "$2" "$OUT" "${3-}" "${4-}") || fail "Agent Cloud request failed"
 }
@@ -73,7 +60,6 @@ uid = str(d.get("uid") or "").strip() if isinstance(d, dict) else ""
 sys.stdout.write(uid or "todo-" + uuid.uuid4().hex)' "$1"
 }
 
-# Print the reply, opened. Map errors to ERROR: lines.
 finish() {
   local err
   case "$CODE" in
@@ -107,7 +93,6 @@ finish() {
   fail "${err:-Agent Cloud HTTP ${CODE}}"
 }
 
-# Merge a partial todo over the opened current one, for a sealed PUT.
 merge_into() {
   python3 -c 'import json, sys
 current = json.load(open(sys.argv[1]))
@@ -124,7 +109,6 @@ for key, value in patch.items():
 json.dump(current, open(sys.argv[3], "w"))' "$1" "$2" "$3"
 }
 
-# The uid in a post body, if any: a post with a uid updates that todo.
 body_uid() {
   python3 -c 'import json, sys
 try:
@@ -163,7 +147,6 @@ case "$CMD" in
   patch)
     FEED=$(cloud_feed) || fail "Agent Cloud request failed"
     if [[ $FEED != seal ]]; then
-      # PUT keeps the fields left out. Cloudflare blocks PATCH.
       PLAIN=$(cloud_tmp) || fail "Agent Cloud request failed"
       python3 -c 'import json, sys
 d = json.load(open(sys.argv[1]))
@@ -177,7 +160,6 @@ json.dump(d, open(sys.argv[2], "w"))' "$BODYFILE" "$PLAIN" || fail "bad todo"
     fi
     request GET "$TODOS/$ITEM"
     if [[ $CODE == 404 && -n $REV ]]; then
-      # Deleted since that rev was read: the same answer as a 412.
       printf 'ERROR:conflict\n%s\n' '{"deleted": true, "current": null}'
       exit 1
     fi
@@ -192,7 +174,6 @@ print("1" if d.get("unreadable") else "0", d.get("rev") or "")' "$CURRENT")
     merge_into "$CURRENT" "$BODYFILE" "$MERGED" || fail "bad todo"
     SEALED=$(cloud_tmp) || fail "Agent Cloud request failed"
     cloud_seal_body todo "$ITEM" "$MERGED" "$SEALED" || fail "could not seal the todo"
-    # Without --rev, the rev just read guards the merge.
     request PUT "$TODOS/$ITEM" "$SEALED" "${REV:-$BASE_REV}"
     finish
     ;;

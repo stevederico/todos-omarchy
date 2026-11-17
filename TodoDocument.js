@@ -1,6 +1,3 @@
-// Pure markdown todo mutations. Panel.qml imports this; Node tests require
-// the same file. No I/O, no git, no QML types.
-
 function fromText(text) {
   const raw = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
   return raw.split("\n")
@@ -71,11 +68,6 @@ function formatTodoLine(indent, text, completed, checkbox) {
   return (indent || "") + (checkbox ? "- [ ] " : "- ") + text
 }
 
-// Two layouts share this module.
-// Plain: optional "# Title", "## Section" groups, "- item" open, "- [x] item" done.
-// Status: two or more "# HEADER" lines (e.g. "# TODAY", "# LATER"). Only
-// "- [ ]" / "- [x]" lines are items, "# DETAILS…" sections repeat items with
-// notes and stay hidden, and a leading "# To-Do 22" title keeps the open count.
 function isStatusHeader(trimmed) {
   return /^#\s+\S/.test(trimmed)
 }
@@ -209,7 +201,6 @@ function completedCount(lines) {
   return n
 }
 
-// Status layout: keep "# To-Do 22" equal to the open count.
 function syncTitleCount(lines) {
   const fmt = detectFormat(lines)
   if (fmt.titleIndex < 0) return lines
@@ -392,8 +383,6 @@ function addItem(lines, text, sectionTitleName) {
   return { lines: syncTitleCount(next), index: insertAt + 1 }
 }
 
-// Status layout: the item's copy in a hidden "# DETAILS…" section follows
-// every check and edit so the two never drift apart.
 function detailCopies(lines, fmt, text, isCompleted) {
   const out = []
   if (!fmt.status) return out
