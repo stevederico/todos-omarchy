@@ -135,6 +135,7 @@ test("conflictCopyTitle marks the copy and fits the title cap", () => {
   assert.ok(Buffer.byteLength(long) <= 512)
   assert.match(long, / \(conflict copy\)$/)
   assert.ok(Buffer.byteLength(Cloud.conflictCopyTitle("\u{1F600}".repeat(200))) <= 512)
+  assert.equal(Cloud.MAX_TITLE_BYTES, 512)
 })
 
 test("conflictRetry keeps an edit as a new todo", () => {
@@ -159,6 +160,7 @@ test("conflictRetry sends a toggle again on the server copy", () => {
 
 test("conflictRetry keeps the server copy on a delete", () => {
   assert.equal(Cloud.conflictRetry({ op: "delete", uid: "todo-1", payload: { uid: "todo-1" } }, { deleted: false, current: { rev: 9 } }), null)
+  assert.equal(Cloud.conflictRetry({ op: "delete", uid: "todo-1", payload: { uid: "todo-1", body: { title: "Milk", done: false } } }, { deleted: false, current: { rev: 9 } }), null)
 })
 
 function listen(server) {

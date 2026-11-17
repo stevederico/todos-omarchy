@@ -1,3 +1,9 @@
+0.65.0
+
+  Add invariant tests
+  Pin cloud-lib security
+  Pin conflict handling
+
 0.64.0
 
   Remove code comments

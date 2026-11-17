@@ -180,10 +180,16 @@ function conflictInfo(raw) {
   return { deleted: !!(parsed && parsed.deleted), current: current }
 }
 
+const MAX_TITLE_BYTES = 512
+
+function utf8Length(text) {
+  return encodeURIComponent(text).replace(/%[0-9A-F]{2}/g, "x").length
+}
+
 function conflictCopyTitle(title) {
   const suffix = " (conflict copy)"
   const chars = Array.from(trim(title))
-  while (chars.length && encodeURIComponent(chars.join("")).replace(/%[0-9A-F]{2}/g, "x").length > 512 - suffix.length)
+  while (chars.length && utf8Length(chars.join("")) > MAX_TITLE_BYTES - suffix.length)
     chars.pop()
   return trim(chars.join("")) + suffix
 }
@@ -221,6 +227,7 @@ if (typeof module !== "undefined") {
     displayName: displayName,
     isConflict: isConflict,
     conflictInfo: conflictInfo,
+    MAX_TITLE_BYTES: MAX_TITLE_BYTES,
     conflictCopyTitle: conflictCopyTitle,
     conflictRetry: conflictRetry,
     parseCalendars: parseCalendars,
